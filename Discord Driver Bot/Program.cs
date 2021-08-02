@@ -21,7 +21,7 @@ namespace Discord_Driver_Bot
 {
     class Program
     {
-        public const string VERSION = "V1.0.0";
+        public const string VERSION = "V1.1.0";
         
         #region 變數
         public static List<BookData> ListBookLogData { get; set; }

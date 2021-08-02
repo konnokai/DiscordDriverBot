@@ -75,15 +75,15 @@ namespace Discord_Driver_Bot.Book
                         Host.Hitomi.GetData(url, e);
                         return true;
                     }
-                //case BookHost.Pixiv:
-                //    {
-                //        if ((url.Contains("member_illust.php") && url.Contains("illust_id")) || url.Contains("artworks") || url.Contains("users"))
-                //        {
-                //            Host.Pixiv.GetData(url, e);
-                //            return true;
-                //        }
-                //        return false;
-                //    }
+                case BookHost.Pixiv:
+                    {
+                        if ((url.Contains("member_illust.php") && url.Contains("illust_id")) || url.Contains("artworks") /*|| url.Contains("users")*/)
+                        {
+                            Host.Pixiv.Pixiv.GetData(url, e);
+                            return true;
+                        }
+                        return false;
+                    }
                 default:
                     {
                         return false;

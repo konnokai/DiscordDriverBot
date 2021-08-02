@@ -69,7 +69,7 @@ namespace Discord_Driver_Bot.Command
 #if DEBUG
                 foreach (string item in message.Content.Split(new char[] { '\n' }))
                 {
-                    Book.Function.ShowBookInfo(item, message);
+                    Book.Function.ShowBookInfo(item, new SocketCommandContext(_client, message));
                 }
 #elif RELEASE
                 string content = message.Content;

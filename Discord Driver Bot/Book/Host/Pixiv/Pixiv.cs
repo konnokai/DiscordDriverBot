@@ -1,14 +1,12 @@
 ﻿using Discord;
 using Discord.Commands;
-using Discord.WebSocket;
 using Discord_Driver_Bot.Command;
+using Html2Markdown;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using Html2Markdown;
 
 namespace Discord_Driver_Bot.Book.Host.Pixiv
 {

@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord_Driver_Bot.Command;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Discord_Driver_Bot.Book.Host.NHentai
 {
@@ -27,7 +28,7 @@ namespace Discord_Driver_Bot.Book.Host.NHentai
                     thumbnailURL = bookData.ThumbnailUrl;
                     title = bookData.Title;
                     japanTitle = bookData.ExtensionData;
-                    bookName = (japanTitle != "" ? japanTitle.FormatBookName() : title.FormatBookName());
+                    bookName = !string.IsNullOrEmpty(japanTitle) ? japanTitle.FormatBookName() : title.FormatBookName();
                     dicTag = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(bookData.Tags.Trim('"').Replace("\\", string.Empty));
                 }
                 else
@@ -65,7 +66,7 @@ namespace Discord_Driver_Bot.Book.Host.NHentai
                     .WithThumbnailUrl(e.Guild.Id == 463657254105645056 ? "" : thumbnailURL);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), true);                
+                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value.Take(30)), true);                
 
                 SearchFunction.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
                 SearchFunction.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);

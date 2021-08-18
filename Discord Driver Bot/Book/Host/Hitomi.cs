@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.Commands;
-using Discord.WebSocket;
 using Discord_Driver_Bot.Command;
 using HtmlAgilityPack;
 using System;
@@ -40,7 +39,10 @@ namespace Discord_Driver_Bot.Book.Host
                     HtmlWeb htmlWeb = new HtmlWeb();
                     IEnumerable<HtmlNode> htmlDocumentNode = htmlWeb.Load(string.Format("https://hitomi.la/galleries/{0}", ID)).DocumentNode.Descendants();
 
-                    thumbnailURL = "https:" + htmlDocumentNode.First((x) => x.Name == "img" && x.ParentNode.ParentNode.HasClass("cover")).GetAttributeValue("src", "");
+                    var realUrl = htmlDocumentNode.First((x) => x.Name == "a").GetAttributeValue("href", "");
+                    htmlDocumentNode = htmlWeb.Load(realUrl).DocumentNode.Descendants();
+
+                    thumbnailURL = "https:" + htmlDocumentNode.First((x) => x.Name == "img" && x.Attributes.Any((x) => x.Name == "srcset")).GetAttributeValue("srcset", "").Split(new char[] { ' ' })[0];
                     htmlDocumentNode = htmlDocumentNode.First((x) => (x.Name == "div" && x.HasClass("gallery"))).Descendants();
                     title = HttpUtility.HtmlDecode(htmlDocumentNode.First((x) => (x.Name == "a")).InnerText);
                     artist = HttpUtility.HtmlDecode(htmlDocumentNode.First((x) => (x.Name == "a" && x.ParentNode.ParentNode.HasClass("comma-list"))).InnerText);

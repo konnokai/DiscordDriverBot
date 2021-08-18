@@ -134,6 +134,7 @@ namespace Discord_Driver_Bot.Command.Normal
             "\n\n例:" +
             "\n!!Search \"空色れん\" 1 ex")]
         [Alias("S")]
+        [RequireNsfw]
         public async Task SearchAsync([Summary("本子關鍵字")]string keyWord = null, [Summary("頁數")]int page = 1, [Summary("搜尋網站")]string host = "ex")
         {
             if (keyWord == null) { await ReplyAsync("缺少本子關鍵字，你以為我會通靈嗎"); return; }
@@ -201,6 +202,7 @@ namespace Discord_Driver_Bot.Command.Normal
         [Command("GetExToken")]
         [Summary("輸入E-Hentai的ID，丟出完整網址\n若頻道為NSFW的話則會直接丟出詳細資料\n例: !!GetExToken 1451369\n回傳: https://exhentai.org/g/1451369/e25f951bb3/")]
         [Alias("GET")]
+        [RequireNsfw]
         public async Task GetExTokenAsync(uint id = 0)
         {
             try
@@ -209,7 +211,7 @@ namespace Discord_Driver_Bot.Command.Normal
                 {
                     string result;
                     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                        result = webClient.DownloadString($"https://api.junrasp.nctu.me/?id={id}");
+                        result = webClient.DownloadString($"https://api.junrasp.com/?id={id}");
                     else
                         result = webClient.DownloadString($"http://127.0.0.1:81/?id={id}");
 

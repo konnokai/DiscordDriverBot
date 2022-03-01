@@ -7,10 +7,22 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.SauceNAOAPI
+namespace Discord_Driver_Bot.HttpClients.SauceNAO
 {
-    public class SauceNAO
+    public class SauceNAOClient
     {
+        public HttpClient Client { get; private set; }
+
+        /// <summary>Gets or sets the SauceNao API key.</summary>
+        /// <value>The SauceNao API key.</value>
+        public string ApiKey { get; set; }
+
+        public SauceNAOClient(HttpClient httpClient, BotConfig botConfig)
+        {
+            Client = httpClient;
+            ApiKey = botConfig.SauceNAOApiKey;
+        }
+
         private static string SplitPascalCase(string convert)
         {
             return Regex.Replace(Regex.Replace(convert, @"(\P{Ll})(\P{Ll}\p{Ll})", "$1 $2"), @"(\p{Ll})(\P{Ll})", "$1 $2");
@@ -97,15 +109,6 @@ namespace Discord_Driver_Bot.SauceNAOAPI
         string _baseUrl = "https://saucenao.com/search.php";
         const int _defaultResultsCount = 8;
 
-        /// <summary>Gets or sets the SauceNao API key.</summary>
-        /// <value>The SauceNao API key.</value>
-        public string ApiKey { get; set; }
-
-        public SauceNAO(string api)
-        {
-            ApiKey = api;
-        }
-
         /// <summary>Gets the sauce for the given image URI asynchronously.</summary>
         /// <param name="uri">The URI of the image.</param>
         /// <param name="resultsCount">The desired results count. If <see cref="ApiKey"/> is not set, the maximum is 16, otherwise it is 32. If the value exceeds the maximum, 6 results are returned.</param>
@@ -114,10 +117,7 @@ namespace Discord_Driver_Bot.SauceNAOAPI
         {
             try
             {
-                using (HttpClient client = new HttpClient())
-                {
-
-                    HttpResponseMessage response = await client.PostAsync(_baseUrl, new MultipartFormDataContent
+                HttpResponseMessage response = await Client.PostAsync(_baseUrl, new MultipartFormDataContent
                     {
                         {new StringContent(ApiKey), "api_key"},
                         {new StringContent("2"), "output_type"},
@@ -127,12 +127,11 @@ namespace Discord_Driver_Bot.SauceNAOAPI
                         {new StringContent("999"), "db"}
                     });
 
-                    return await _parseResults(client, JsonConvert.DeserializeObject<JObject>(await response.Content.ReadAsStringAsync())["results"]);
-                }
+                return await _parseResults(Client, JsonConvert.DeserializeObject<JObject>(await response.Content.ReadAsStringAsync())["results"]);
             }
             catch (Exception ex)
             {
-                Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed);
+                Log.Error(ex.ToString());
                 return null;
             }
         }

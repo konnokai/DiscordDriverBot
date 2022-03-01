@@ -8,8 +8,6 @@ namespace Discord_Driver_Bot.SQLite
         public DbSet<DbBotConfig> DbBotConfig { get; set; }
         public DbSet<BookData> BookData { get; set; }
         public DbSet<GuildInfo> GuildInfo { get; set; }
-        public DbSet<TrustedGuild> TrustedGuild { get; set; }
-        public DbSet<UpdateGuildInfo> UpdateGuildInfo { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)
             => options.UseSqlite($"Data Source={Program.GetDataFilePath("DataBase.db")}");

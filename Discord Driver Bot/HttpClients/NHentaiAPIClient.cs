@@ -1,23 +1,27 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Book.Host.NHentai
+namespace Discord_Driver_Bot.HttpClients
 {
-    class API
+    public class NHentaiAPIClient
     {
-        public static Gallery GetGallery(string ID)
+        HttpClient Client;
+        public NHentaiAPIClient()
+        {
+            Client = new HttpClient();
+        }
+
+        public async Task<Gallery> GetGalleryAsync(string ID)
         {
             try
             {
-                using (WebClient webClient = new WebClient())
-                {
-                    string json = webClient.DownloadString($"https://nhentai.net/api/gallery/{ID}");
-                    if (json.Contains("error")) return null;
+                string json = await Client.GetStringAsync($"https://nhentai.net/api/gallery/{ID}");
+                if (json.Contains("error")) return null;
 
-                    return JsonConvert.DeserializeObject<Gallery>(json);
-                }
+                return JsonConvert.DeserializeObject<Gallery>(json);
             }
             catch (Exception)
             {

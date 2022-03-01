@@ -1,30 +1,28 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using Discord_Driver_Bot.Book.Host.EHentai;
-using Discord_Driver_Bot.SauceNAOAPI;
-using Newtonsoft.Json;
+using Discord_Driver_Bot.HttpClients.Ascii2D;
+using Discord_Driver_Bot.HttpClients.SauceNAO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Command.Normal
 {
-    public class Normal : TopLevelModule<NormalService>
+    public class Normal : TopLevelModule
     {
         private readonly DiscordSocketClient _client;
-        private readonly NormalService _normal;
-        private readonly SauceNAO wrapper;
+        private readonly SauceNAOClient _sauceNAOClient;
+        private readonly Ascii2DClient _ascii2DClient;
         private string[] AllowedFileTypes { get; } = new[] { ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".svg", ".webp" };
 
-        public Normal(DiscordSocketClient client, NormalService normal,BotConfig botConfig)
+        public Normal(DiscordSocketClient client,
+            SauceNAOClient sauceNAOClient, Ascii2DClient ascii2DClient)
         {
             _client = client;
-            _normal = normal;
-            wrapper = new SauceNAO(botConfig.SauceNAOApiKey);
+            _sauceNAOClient = sauceNAOClient;
+            _ascii2DClient = ascii2DClient;
         }
 
         [Command("AutoGodSay")]
@@ -69,7 +67,7 @@ namespace Discord_Driver_Bot.Command.Normal
                         host = "ex";
                         break;
                     default:
-                        await ReplyAsync($"{Context.User.Mention} 我不知道 {item} 所代表的網站，請使用 `!!godsay 本子網址縮寫 神的語言`");
+                        await Context.Channel.SendErrorAsync($"我不知道 {item} 所代表的網站，請使用 `!!godsay 本子網址縮寫 神的語言`");
                         return;
                 }
                 
@@ -109,11 +107,11 @@ namespace Discord_Driver_Bot.Command.Normal
                     url = string.Format("https://www.pixiv.net/artworks/{0}", godSay);
                     break;
                 default:
-                    await ReplyAsync(string.Format("{1} 找不到 {0} 的縮寫網站", host, Context.User.Mention));
+                    await Context.Channel.SendErrorAsync($"找不到 {host} 的縮寫網站");
                     return;
             }
 
-            if (url != "" && Book.Function.ShowBookInfo(url, Context))
+            if (url != "" && await Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User))
             {
                 SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
             }
@@ -132,24 +130,52 @@ namespace Discord_Driver_Bot.Command.Normal
             "\n預設搜尋ExHentai" +
             "\n如關鍵字有空白，請在關鍵字錢後加上\"\"" +
             "\n\n例:" +
-            "\n!!Search \"空色れん\" 1 ex")]
+            "\n!!Search ex \"空色れん\" 1")]        
         [Alias("S")]
         [RequireNsfw]
-        public async Task SearchAsync([Summary("本子關鍵字")]string keyWord = null, [Summary("頁數")]int page = 1, [Summary("搜尋網站")]string host = "ex")
+        public async Task SearchAsync([Summary("搜尋網站")] string host = "ex", [Summary("本子關鍵字")]string keyWord = null, [Summary("頁數")]int page = 1)
         {
             if (keyWord == null) { await ReplyAsync("缺少本子關鍵字，你以為我會通靈嗎"); return; }
 
             switch (host)
             {
-                case "n":
-                    await _normal.SearchNHentai(Context, keyWord, page);
-                    break;
                 case "ex":
                 case "e-":
-                    await _normal.SearchExHentai(Context, keyWord, page--);
-                    break;
+                    {
+                        var result = await Gallery.SearchMulti.SearchExHentai(keyWord, page--);
+                        if (result == null) await Context.Channel.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果");
+
+                        await Context.SendPaginatedConfirmAsync(0, (row) =>
+                        {
+                            EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor()
+                            .WithUrl(result.SearchURL)
+                            .WithTitle($"ExHentai 搜尋 `{keyWord}` 的結果如下")
+                            .WithDescription($"共 {result.SearchCount} 本，合計 {(result.SearchCount / 25) + 1} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`/s ex \"{keyWord}\" 頁數`");
+                            result.BookData.Skip(row * 7).Take(7).ToList().ForEach((x) => embedBuilder.AddField(x.Title, Format.Url(x.Language, x.URL), false));
+
+                            return embedBuilder;
+                        }, result.BookData.Count, 7);
+                        break;
+                    }
+                case "n":
+                    {
+                        var result = await Gallery.SearchMulti.SearchNHentaiAsync(keyWord, page);
+                        if (result == null) await Context.Channel.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果");
+
+                        await Context.SendPaginatedConfirmAsync(0, (row) =>
+                        {
+                            EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor()
+                            .WithUrl(result.SearchURL)
+                            .WithTitle($"NHentai 搜尋 `{keyWord}` 的結果如下")
+                            .WithDescription($"共 {result.SearchCount} 本，合計 {(result.SearchCount / 25) + 1} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`!!s n \"{keyWord}\" 頁數`");
+                            result.BookData.Skip(row * 7).Take(7).ToList().ForEach((x) => embedBuilder.AddField(x.Title, Format.Url(x.Language, x.URL), false));
+
+                            return embedBuilder;
+                        }, result.BookData.Count, 7);
+                        break;
+                    }
                 default:
-                    await ReplyAsync($"我不知道 {host}");
+                    await Context.Channel.SendErrorAsync($"我不知道 {host} 是甚麼網站");
                     break;
             }
         }
@@ -158,22 +184,12 @@ namespace Discord_Driver_Bot.Command.Normal
         [Summary("取得邀請連結")]
         public async Task InviteAsync()
         {
-#if RELEASE
-            if (Context.User.Id != Program.ApplicatonOwner.Id)
-            {
-                Program.SendMessageToDiscord(string.Format("[{0}-{1}] {2}:({3}) 使用了邀請指令",
-                    Context.Guild.Name, Context.Channel.Name, Context.Message.Author.Username, Context.Message.Author.Id));
-            }
-#endif
-
             try
             {
-                await (await Context.Message.Author.GetOrCreateDMChannelAsync()).SendMessageAsync(
-                    "<https://discordapp.com/api/oauth2/authorize?client_id=" + Program._client.CurrentUser.Id + "&permissions=388161&scope=bot>\n" +
-                    "請先通知 " + Program.ApplicatonOwner.Mention + " 取得邀請同意後再行邀請\n" +
-                    "另外，若伺服器人數低於10人或發現未有發車情況，將會退出伺服器");
+                await (await Context.Message.Author.CreateDMChannelAsync()).SendMessageAsync(embed: new EmbedBuilder().WithOkColor()
+                    .WithDescription("<https://discordapp.com/api/oauth2/authorize?client_id=" + Program._client.CurrentUser.Id + "&permissions=388161&scope=bot%20applications.commands>").Build());
             }
-            catch (Exception) { await ReplyAsync("無法私訊，請確認已開啟伺服器內成員私訊許可"); }
+            catch (Exception) { await Context.Channel.SendErrorAsync("無法私訊，請確認已開啟伺服器內成員私訊許可"); }
         }
 
         [Command("Status")]
@@ -181,67 +197,73 @@ namespace Discord_Driver_Bot.Command.Normal
         [Alias("Stats")]
         public async Task StatusAsync()
         {
-            int temp = 0;
-            foreach (SocketGuild item in Program._client.Guilds) temp += item.MemberCount;
-
             EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor();
-            embedBuilder.Title = "飆車小幫手 " + Program.VERSION;
+            embedBuilder.WithTitle("飆車小幫手");
 #if DEBUG
             embedBuilder.Title += " (測試版)";
 #endif
 
+            embedBuilder.WithDescription($"建置版本 {Program.VERSION}");
             embedBuilder.AddField("作者", "孤之界#1121", true);
-            embedBuilder.AddField("擁有者", Program.ApplicatonOwner.Username + "#" + Program.ApplicatonOwner.Discriminator, true);
+            embedBuilder.AddField("擁有者", $"{Program.ApplicatonOwner.Username}#{Program.ApplicatonOwner.Discriminator}", true);
+            embedBuilder.AddField("狀態", $"伺服器 {_client.Guilds.Count}\n服務成員數 {_client.Guilds.Sum((x) => x.MemberCount)}", false);
             embedBuilder.AddField("看過的本子數量", Program.ListBookLogData.Count.ToString(), true);
-            embedBuilder.AddField("狀態", $"伺服器 {Program._client.Guilds.Count}\n服務成員數 {temp}", false);
-            embedBuilder.AddField("上線時間", $"{Program.stopWatch.Elapsed.Days} 天 {Program.stopWatch.Elapsed.Hours} 小時 {Program.stopWatch.Elapsed.Minutes} 分鐘 {Program.stopWatch.Elapsed.Seconds} 秒", false);
+            embedBuilder.AddField("上線時間", $"{Program.stopWatch.Elapsed:d\\天\\ hh\\:mm\\:ss}", false);
 
-            await ReplyAsync(null, false, embedBuilder.Build());
+            await ReplyAsync(embed: embedBuilder.Build());
         }
 
-        [Command("GetExToken")]
-        [Summary("輸入E-Hentai的ID，丟出完整網址\n若頻道為NSFW的話則會直接丟出詳細資料\n例: !!GetExToken 1451369\n回傳: https://exhentai.org/g/1451369/e25f951bb3/")]
-        [Alias("GET")]
-        [RequireNsfw]
-        public async Task GetExTokenAsync(uint id = 0)
-        {
-            try
-            {
-                using (WebClient webClient = new WebClient())
-                {
-                    string result;
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                        result = webClient.DownloadString($"https://api.junrasp.com/?id={id}");
-                    else
-                        result = webClient.DownloadString($"http://127.0.0.1:81/?id={id}");
+        //[Command("GetExToken")]
+        //[Summary("輸入E-Hentai的ID，丟出完整網址\n若頻道為NSFW的話則會直接丟出詳細資料\n例: !!GetExToken 1451369\n回傳: https://exhentai.org/g/1451369/e25f951bb3/")]
+        //[Alias("GET")]
+        //[RequireNsfw]
+        //public async Task GetExTokenAsync(uint id = 0)
+        //{
+        //    try
+        //    {
+        //        using (WebClient webClient = new WebClient())
+        //        {
+        //            string result;
+        //            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        //                result = webClient.DownloadString($"https://?id={id}");
+        //            else
+        //                result = webClient.DownloadString($"http://127.0.0.1:81/?id={id}");
 
-                    if (result.StartsWith("{}"))
-                        await ReplyAsync($"ID {id} 無資料");
-                    else
-                    {
-                        API.GalleryData galleryData = JsonConvert.DeserializeObject<API.GalleryData>(result);
-                        if (((ITextChannel)Context.Channel).IsNsfw || galleryData.Type == "Non-H") EHentai.GetData($"exhentai.org/g/{galleryData.ID}/{galleryData.Token}", Context);
-                        else await ReplyAsync($"https://exhentai.org/g/{galleryData.ID}/{galleryData.Token}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                await ReplyAsync("因系統問題，暫不開放使用");
-                Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed);
-            }
-        }
+        //            if (result.StartsWith("{}"))
+        //                await ReplyAsync($"ID {id} 無資料");
+        //            else
+        //            {
+        //                API.GalleryData galleryData = JsonConvert.DeserializeObject<API.GalleryData>(result);
+        //                if (((ITextChannel)Context.Channel).IsNsfw || galleryData.Type == "Non-H") EHentai.GetData($"exhentai.org/g/{galleryData.ID}/{galleryData.Token}", Context);
+        //                else await ReplyAsync($"https://exhentai.org/g/{galleryData.ID}/{galleryData.Token}");
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await ReplyAsync("因系統問題，暫不開放使用");
+        //        Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed);
+        //    }
+        //}
 
         [Command("Sauce")]
-        [Summary("以圖搜圖，參數可指定向上略過幾張圖片來做搜尋\n也可以直接丟出網址來搜尋")]
+        [Summary("以圖搜圖，參數可指定向上略過幾張圖片來做搜尋\n" +
+            "也可以直接丟出網址來搜尋\n" +
+            "或是透過對該圖片回應並輸入 `!!sauce` 同樣可以搜圖")]
         [Priority(1)]
         public async Task SauceAsync([Summary("向上略過幾張圖片")]int skip = 0)
         {
-            var message = (await Context.Channel.GetMessagesAsync().FlattenAsync().ConfigureAwait(false)).Where((x) =>
-            x.Attachments.Count > 0 || 
-            (x.Content.StartsWith("https://") && AllowedFileTypes.Any((x2) => x2 ==  System.IO.Path.GetExtension(x.Content))))
-                .Skip(skip).Take(1).FirstOrDefault();
-            if (message == null) { await ReplyAsync("不存在可搜尋的圖片"); return; }
+            IMessage message = Context.Message.ReferencedMessage;
+            if (message == null)
+                message = await GetLastAttachmentMessageAsync(skip);
+
+            if (message == null ||
+                message.Attachments.Count == 0 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Content)) ||
+                message.Attachments.Count >= 1 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Attachments.First().Url)))
+            { 
+                await Context.Channel.SendErrorAsync("不存在可搜尋的圖片"); 
+                return;
+            }
 
             await SauceAsync(message.Attachments.Count > 0 ? message.Attachments.First().Url : message.Content);
         }
@@ -252,32 +274,76 @@ namespace Discord_Driver_Bot.Command.Normal
         {
             try
             {
-                var result = await wrapper.GetSauceAsync(url).ConfigureAwait(false);
-                if (result != null)
+                var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
+                if (ascii2dResult != null)
+                {
+                    try
+                    {
+                        List<string> description = new List<string>();
+                        await foreach (var item in ascii2dResult)
+                        {
+                            description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
+                        }
+
+                        EmbedBuilder embedBuilder = new EmbedBuilder()
+                            .WithOkColor()
+                            .WithTitle(ascii2dResult.FirstAsync().Result.Title)
+                            .WithDescription(string.Join('\n', description))
+                            .WithFooter("Ascii2D");
+                        embedBuilder.WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail);
+
+                        await ReplyAsync(null, false, embedBuilder.Build());
+                    }
+                    catch (Exception ex)
+                    {
+                        await Context.Channel.SendErrorAsync($"Ascii2D搜尋失敗");
+                        Log.Error(ex.ToString());
+                    }
+                }
+                else
+                {
+                    await Context.Channel.SendErrorAsync($"Ascii2D搜尋失敗");
+                }
+
+                var sauceResult = await _sauceNAOClient.GetSauceAsync(url).ConfigureAwait(false);
+                if (sauceResult != null)
                 {
                     List<string> description = new List<string>();
-                    foreach (var item in result)
+                    foreach (var item in sauceResult)
                     {
-                        if (item.Index == SauceNAO.SiteIndex.nHentai) description.Add($"NHentai {item.Similarity}% 相似度");
+                        if (item.Index == SauceNAOClient.SiteIndex.nHentai) description.Add($"NHentai {item.Similarity}% 相似度");
                         else if (item.Sources != null) description.Add($"[{item.DB}]({item.Sources[0]}) {item.Similarity}% 相似度");
                     }
 
                     EmbedBuilder embedBuilder = new EmbedBuilder()
                         .WithOkColor()
-                        .WithTitle(result[0].Title)
-                        .WithDescription(string.Join('\n', description));
+                        .WithTitle(sauceResult[0].Title)
+                        .WithDescription(string.Join('\n', description))
+                        .WithFooter("SauceNAO");
 
-                    if ((result[0].Rating == SauceNAO.SourceRating.Nsfw && ((ITextChannel)Context.Channel).IsNsfw) || result[0].Rating == SauceNAO.SourceRating.Safe)
-                        embedBuilder.WithThumbnailUrl(result[0].Thumbnail);
+                    if ((sauceResult[0].Rating == SauceNAOClient.SourceRating.Nsfw && ((ITextChannel)Context.Channel).IsNsfw) || sauceResult[0].Rating == SauceNAOClient.SourceRating.Safe)
+                        embedBuilder.WithThumbnailUrl(sauceResult[0].Thumbnail);
 
                     await ReplyAsync(null, false, embedBuilder.Build());
                 }
                 else
                 {
-                    await ReplyAsync($"搜尋失敗");
+                    await Context.Channel.SendErrorAsync($"SauceNAO搜尋失敗");
                 }
             }
-            catch (Exception ex) { await ReplyAsync("搜尋失敗"); Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed); }
+            catch (Exception ex) 
+            {
+                await Context.Channel.SendErrorAsync("搜尋失敗");
+                Log.Error(ex.ToString()); 
+            }
         }
-    }
+
+        private async Task<IMessage> GetLastAttachmentMessageAsync(int skip = 0)
+        {
+            return (await Context.Channel.GetMessagesAsync().FlattenAsync().ConfigureAwait(false)).Where((x) =>
+          x.Attachments.Count > 0 && AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(x.Attachments.First().Url)) ||
+          (x.Content.StartsWith("https://") && AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(x.Content))))
+              .Skip(skip).Take(1).FirstOrDefault();
+        }
+    } 
 }

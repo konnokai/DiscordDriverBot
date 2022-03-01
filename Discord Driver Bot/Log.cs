@@ -3,8 +3,7 @@ using System;
 using System.Threading.Tasks;
 public static class Log
 {
-
-    public static void NewStream(string text, bool newLine = true)
+    public static void NewBook(string text, bool newLine = true)
     {
         FormatColorWrite(text, ConsoleColor.Green, newLine);
     }

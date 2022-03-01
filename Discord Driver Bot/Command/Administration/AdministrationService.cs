@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Command.Administration
 {
-    public class AdministrationService : IService
+    public class AdministrationService : ICommandService
     {
         private DiscordSocketClient _Client;
         public AdministrationService(DiscordSocketClient client)

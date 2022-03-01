@@ -1,22 +1,28 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord_Driver_Bot.Command;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Book.Host.NHentai
+namespace Discord_Driver_Bot.Gallery.Host
 {
     class NHentai
     {
-        public static void GetData(string url, ICommandContext e)
+        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
             if (!url.StartsWith("nhentai.net/g/")) return;
 
             string[] urlSplit = url.Split(new char[] { '?' })[0].Trim('/').Split(new char[] { '/' });
             string ID = urlSplit[2];
             if (!Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}", ID)))
-            { e.Channel.SendMessageAsync(string.Format("{0} ID {1} 不存在本子", e.Message.Author.Mention, ID)); return; }
+            {
+                if (interactionContext == null)
+                    await messageChannel.SendMessageAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                else
+                    await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                return;
+            }
 
             try
             {
@@ -34,7 +40,7 @@ namespace Discord_Driver_Bot.Book.Host.NHentai
                 else
                 {
                     dicTag = new Dictionary<string, List<string>>();
-                    Gallery gallery = API.GetGallery(ID);
+                    HttpClients.Gallery gallery = await Program.NHentaiAPIClient.GetGalleryAsync(ID);
 
                     thumbnailURL = $"https://t.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
                     title = gallery.Title.English;
@@ -56,21 +62,21 @@ namespace Discord_Driver_Bot.Book.Host.NHentai
                     new SQLite.Table.BookData(string.Format("https://nhentai.net/g/{0}", ID), title, japanTitle, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.FormatColorWrite(string.Format("{0} ({1})", thumbnailURL, bookName), ConsoleColor.Green);
+                Log.NewBook($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()
                     .WithTitle(title)
                     .WithDescription(japanTitle)
                     .WithUrl(string.Format("https://nhentai.net/g/{0}", ID))
-                    .WithThumbnailUrl(e.Guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value.Take(30)), true);                
+                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value.Take(30)), true);
 
-                SearchFunction.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
-                SearchFunction.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
-                SearchFunction.SearchWnacg(bookName, out string wnacgUrl, out string wnacgLanguage);
+                SearchSingle.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
+                SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
+                SearchSingle.SearchWnacg(bookName, out string wnacgUrl, out string wnacgLanguage);
 
                 if (E_HentaiUrl != "" || wnacgUrl != "")
                 {
@@ -81,15 +87,25 @@ namespace Discord_Driver_Bot.Book.Host.NHentai
                 }
                 else discordEmbedBuilder.AddField("其他網站:", "無", true);
 
-                if (bookData != null) discordEmbedBuilder.AddField("被看過了",$"{bookData.DateTime.Replace("T", " ")} 被其他人看過", true);
-                discordEmbedBuilder.WithFooter(e.Message.Author.Username + " ID: " + e.Message.Author.Id, e.Message.Author.GetAvatarUrl());
-                e.Channel.SendMessageAsync(null, false, discordEmbedBuilder.Build());
+                if (bookData != null) discordEmbedBuilder.AddField("被看過了", $"{bookData.DateTime.Replace("T", " ")} 被其他人看過", true);
+                discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
+                if (interactionContext == null)
+                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
+                else
+                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
             }
-            catch (Exception e2)
+            catch (Exception ex)
             {
-                Program.ApplicatonOwner.SendMessageAsync(string.Format("{0} ({1})\n{2}\n{3}", e.Message.Author.Username, e.Channel.Name, "https://" + url, e2.Message + "\n" + e2.StackTrace));
-                Log.FormatColorWrite(e2.Message + "\r\n" + e2.StackTrace, ConsoleColor.Red);
+#if RELEASE
+                await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
+                    .WithErrorColor()
+                    .WithTitle($"{user.Username} ({messageChannel.Name})")
+                    .WithUrl($"https://{url}")
+                    .WithDescription(ex.ToString())
+                    .Build());
+#endif
+                Log.Error(ex.ToString());
             }
-        }            
+        }
     }
 }

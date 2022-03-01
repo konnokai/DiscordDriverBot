@@ -85,7 +85,7 @@ namespace Discord_Driver_Bot.Command.Help
             if (string.IsNullOrWhiteSpace(command))
             {
                 EmbedBuilder embed = new EmbedBuilder().WithOkColor().WithFooter("輸入 `!!Modules` 取得所有的模組");
-                embed.Title = "飆車小幫手 " + Program.VERSION;
+                embed.Title = "飆車小幫手 建置版本" + Program.VERSION;
 #if DEBUG
                 embed.Title += " (測試版)";
 #endif

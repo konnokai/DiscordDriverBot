@@ -10,7 +10,7 @@ namespace Discord_Driver_Bot.Command
 
     }
 
-    public abstract class TopLevelModule<TService> : TopLevelModule where TService : IService
+    public abstract class TopLevelModule<TService> : TopLevelModule where TService : ICommandService
     {
         protected TopLevelModule()
         {

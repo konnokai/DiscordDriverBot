@@ -1,14 +1,15 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
+using Discord_Driver_Bot.Interaction;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Command
+namespace Discord_Driver_Bot.Interaction
 {
     static class Extensions
     {
@@ -19,81 +20,88 @@ namespace Discord_Driver_Bot.Command
            eb.WithColor(00, 229, 132);
         public static EmbedBuilder WithErrorColor(this EmbedBuilder eb) =>
            eb.WithColor(40, 40, 40);
+        public static EmbedBuilder WithRecordColor(this EmbedBuilder eb) =>
+           eb.WithColor(255, 0, 0);
 
-        public static Task<IUserMessage> SendConfirmAsync(this IMessageChannel ch, string des)
-             => ch.SendMessageAsync("", embed: new EmbedBuilder().WithOkColor().WithDescription(des).Build());
-        public static Task<IUserMessage> SendConfirmAsync(this IMessageChannel ch, string title, string des)
-             => ch.SendMessageAsync("", embed: new EmbedBuilder().WithOkColor().WithTitle(title).WithDescription(des).Build());
-        public static Task<IUserMessage> SendErrorAsync(this IMessageChannel ch, string des)
-             => ch.SendMessageAsync("", embed: new EmbedBuilder().WithErrorColor().WithDescription(des).Build());
-        public static Task<IUserMessage> SendErrorAsync(this IMessageChannel ch, string title, string des)
-             => ch.SendMessageAsync("", embed: new EmbedBuilder().WithErrorColor().WithTitle(title).WithDescription(des).Build());
+        public static DateTime ConvertToDateTime(this string str) =>
+           DateTime.Parse(str);
 
-        static public async Task<bool> PromptUserConfirmAsync(this SocketCommandContext ctx, EmbedBuilder embed)
+        public static string ConvertDateTimeToDiscordMarkdown(this DateTime dateTime)
         {
-            embed.WithOkColor()
-                .WithFooter("yes/no");
-
-            var msg = await ctx.Channel.EmbedAsync(embed).ConfigureAwait(false);
-            try
-            {
-                var input = await GetUserInputAsync(ctx.User.Id, ctx.Channel.Id).ConfigureAwait(false);
-                input = input?.ToUpperInvariant();
-
-                if (input != "YES" && input != "Y")
-                {
-                    return false;
-                }
-
-                return true;
-            }
-            finally
-            {
-                var _ = Task.Run(() => msg.DeleteAsync());
-            }
+            long UTCTime = ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+            return $"<t:{UTCTime}:F> (<t:{UTCTime}:R>)";
         }
 
-        // TypeConverter typeConverter = TypeDescriptor.GetConverter(propType); ?
-        static public async Task<string> GetUserInputAsync(ulong userId, ulong channelId)
+        public static string GetChannelId(this string text)
         {
-            var userInputTask = new TaskCompletionSource<string>();
-            var dsc = Program._client;
-            try
-            {
-                dsc.MessageReceived += MessageReceived;
+            if (string.IsNullOrEmpty(text))
+                throw new ArgumentNullException(text);
 
-                if ((await Task.WhenAny(userInputTask.Task, Task.Delay(10000)).ConfigureAwait(false)) != userInputTask.Task)
-                {
-                    return null;
-                }
+            text = text.Trim();
 
-                return await userInputTask.Task.ConfigureAwait(false);
-            }
-            finally
+            switch (text.ToLower())
             {
-                dsc.MessageReceived -= MessageReceived;
-            }
-
-            Task MessageReceived(SocketMessage arg)
-            {
-                var _ = Task.Run(() =>
-                {
-                    if (!(arg is SocketUserMessage userMsg) ||
-                        !(userMsg.Channel is ITextChannel chan) ||
-                        userMsg.Author.Id != userId ||
-                        userMsg.Channel.Id != channelId)
+                case "all":
+                case "holo":
+                case "2434":
+                case "other":
+                    text = text.ToLower();
+                    break;
+                default:
                     {
-                        return Task.CompletedTask;
-                    }
+                        if (!text.Contains("UC"))
+                            throw new FormatException("頻道Id錯誤");
 
-                    if (userInputTask.TrySetResult(arg.Content))
-                    {
-                        userMsg.DeleteAfter(1);
+                        try
+                        {
+                            text = text.Substring(text.IndexOf("UC"), 24);
+                        }
+                        catch
+                        {
+                            throw new FormatException("頻道Id格式錯誤");
+                        }
+                        break;
                     }
-                    return Task.CompletedTask;
-                });
-                return Task.CompletedTask;
             }
+
+            return text;
+        }
+
+        public static IEnumerable<T> Distinct<T, V>(this IEnumerable<T> source, Func<T, V> keySelector)
+        {
+            return source.Distinct(new CommonEqualityComparer<T, V>(keySelector));
+        }
+
+        public static Task SendConfirmAsync(this IDiscordInteraction di, string des, bool isFollowerup = false, bool ephemeral = false)
+        {
+            if (isFollowerup)
+                return di.FollowupAsync(embed: new EmbedBuilder().WithOkColor().WithDescription(des).Build(), ephemeral: ephemeral);
+            else
+                return di.RespondAsync(embed: new EmbedBuilder().WithOkColor().WithDescription(des).Build(), ephemeral: ephemeral);
+        }
+
+        public static Task SendConfirmAsync(this IDiscordInteraction di, string title, string des, bool isFollowerup = false, bool ephemeral = false)
+        {
+            if (isFollowerup)
+                return di.FollowupAsync(embed: new EmbedBuilder().WithOkColor().WithTitle(title).WithDescription(des).Build(), ephemeral: ephemeral);
+            else
+                return di.RespondAsync(embed: new EmbedBuilder().WithOkColor().WithTitle(title).WithDescription(des).Build(), ephemeral: ephemeral);
+        }
+
+        public static Task SendErrorAsync(this IDiscordInteraction di, string des, bool isFollowerup = false, bool ephemeral = true)
+        {
+            if (isFollowerup)
+                return di.FollowupAsync(embed: new EmbedBuilder().WithErrorColor().WithDescription(des).Build(), ephemeral: ephemeral);
+            else
+                return di.RespondAsync(embed: new EmbedBuilder().WithErrorColor().WithDescription(des).Build(), ephemeral: ephemeral);
+        }
+
+        public static Task SendErrorAsync(this IDiscordInteraction di, string title, string des, bool isFollowerup = false, bool ephemeral = true)
+        {
+            if (isFollowerup)
+                return di.FollowupAsync(embed: new EmbedBuilder().WithErrorColor().WithTitle(title).WithDescription(des).Build(), ephemeral: ephemeral);
+            else
+                return di.RespondAsync(embed: new EmbedBuilder().WithErrorColor().WithTitle(title).WithDescription(des).Build(), ephemeral: ephemeral);
         }
 
         public static IMessage DeleteAfter(this IUserMessage msg, int seconds)
@@ -107,7 +115,7 @@ namespace Discord_Driver_Bot.Command
             return msg;
         }
 
-        public static IEnumerable<Type> LoadCommandFrom(this IServiceCollection collection, Assembly assembly)
+        public static IEnumerable<Type> LoadInteractionFrom(this IServiceCollection collection, Assembly assembly)
         {
             List<Type> addedTypes = new List<Type>();
 
@@ -123,14 +131,14 @@ namespace Discord_Driver_Bot.Command
             }
 
             var services = new Queue<Type>(allTypes
-                    .Where(x => x.GetInterfaces().Contains(typeof(ICommandService))
+                    .Where(x => x.GetInterfaces().Contains(typeof(IInteractionService))
                         && !x.GetTypeInfo().IsInterface && !x.GetTypeInfo().IsAbstract)
                     .ToArray());
 
             addedTypes.AddRange(services);
 
             var interfaces = new HashSet<Type>(allTypes
-                    .Where(x => x.GetInterfaces().Contains(typeof(ICommandService))
+                    .Where(x => x.GetInterfaces().Contains(typeof(IInteractionService))
                         && x.GetTypeInfo().IsInterface));
 
             while (services.Count > 0)
@@ -155,20 +163,20 @@ namespace Discord_Driver_Bot.Command
             return addedTypes;
         }
 
-        public static Task<IUserMessage> EmbedAsync(this IMessageChannel ch, EmbedBuilder embed, string msg = "")
-            => ch.SendMessageAsync(msg, embed: embed.Build(),
-                options: new RequestOptions() { RetryMode = RetryMode.AlwaysRetry });
+        public static Task<IUserMessage> EmbedAsync(this IDiscordInteraction di, EmbedBuilder embed, string msg = "", bool ephemeral = false)
+            => di.FollowupAsync(msg, embed: embed.Build(),
+                options: new RequestOptions() { RetryMode = RetryMode.AlwaysRetry }, ephemeral: ephemeral);
 
-        public static Task<IUserMessage> EmbedAsync(this IMessageChannel ch, string msg = "")
-        {
-            return ch.SendMessageAsync(null, false, new EmbedBuilder().WithOkColor().WithDescription(msg).Build(), new RequestOptions { RetryMode = RetryMode.AlwaysRetry });
-        }
+        public static Task<IUserMessage> EmbedAsync(this IDiscordInteraction di, string msg = "", bool ephemeral = false)
+           => di.FollowupAsync(embed: new EmbedBuilder().WithOkColor().WithDescription(msg).Build(),
+               options: new RequestOptions { RetryMode = RetryMode.AlwaysRetry }, ephemeral: ephemeral);
 
-        public static Task SendPaginatedConfirmAsync(this ICommandContext ctx, int currentPage, Func<int, EmbedBuilder> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true)
-            => ctx.SendPaginatedConfirmAsync(currentPage, (x) => Task.FromResult(pageFunc(x)), totalElements, itemsPerPage, addPaginatedFooter);
 
-        public static async Task SendPaginatedConfirmAsync(this ICommandContext ctx, int currentPage,
-    Func<int, Task<EmbedBuilder>> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true)
+        public static Task SendPaginatedConfirmAsync(this IInteractionContext ctx, int currentPage, Func<int, EmbedBuilder> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true, bool ephemeral = false, bool isFollowup = false)
+            => ctx.SendPaginatedConfirmAsync(currentPage, (x) => Task.FromResult(pageFunc(x)), totalElements, itemsPerPage, addPaginatedFooter, ephemeral, isFollowup);
+
+        public static async Task SendPaginatedConfirmAsync(this IInteractionContext ctx, int currentPage,
+    Func<int, Task<EmbedBuilder>> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true, bool ephemeral = false,bool isFollowup = false)
         {
             var embed = await pageFunc(currentPage).ConfigureAwait(false);
 
@@ -177,7 +185,13 @@ namespace Discord_Driver_Bot.Command
             if (addPaginatedFooter)
                 embed.AddPaginatedFooter(currentPage, lastPage);
 
-            var msg = await ctx.Channel.EmbedAsync(embed).ConfigureAwait(false) as IUserMessage;
+            IUserMessage msg;
+            if (isFollowup) msg = await ctx.Interaction.FollowupAsync(embed: embed.Build(), ephemeral: ephemeral).ConfigureAwait(false);
+            else
+            {
+                await ctx.Interaction.RespondAsync(embed: embed.Build(), ephemeral: ephemeral).ConfigureAwait(false);
+                msg = await ctx.Interaction.GetOriginalResponseAsync().ConfigureAwait(false);
+            }
 
             if (lastPage == 0)
                 return;
@@ -268,37 +282,9 @@ namespace Discord_Driver_Bot.Command
             return wrap;
         }
 
-        public static void InsertNewData(this SQLite.Table.BookData bookData)
+        public static IGuild GetGuild(this SocketMessageCommand command)
         {
-            using (var db = new SQLite.DriverContext())
-            {
-                db.BookData.Add(bookData);
-                db.SaveChanges();
-                Program.ListBookLogData.Add(bookData);
-            }
-        }
-
-        public static string FormatEmoteName(this GuildEmote emote)
-        {
-            return (emote.Animated ? "a:" : ":") + emote.Name + ":";
-        }
-
-        public static int FilterID(this string url)
-        {
-            int result = 0;
-            try
-            {
-                string tempUrl = "";
-                foreach (char item in url) if (item >= 48 && item <= 57) tempUrl += item;
-                result = int.Parse(tempUrl);
-            }
-            catch (Exception) { }
-            return result;
-        }
-
-        public static IGuild GetGuild(this SocketMessage channel)
-        {
-            return Program._client.Guilds.FirstOrDefault((x) => x.TextChannels.Any((x2) => x2.Id == channel.Channel.Id));
+            return Program._client.Guilds.FirstOrDefault((x) => x.TextChannels.Any((x2) => x2.Id == command.Channel.Id));
         }
     }
 }

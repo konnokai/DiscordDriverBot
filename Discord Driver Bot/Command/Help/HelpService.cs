@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Discord_Driver_Bot.Command.Help
 {
-    public class HelpService : IService
+    public class HelpService : ICommandService
     {
         public EmbedBuilder GetCommandHelp(CommandInfo com)
         {

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Discord_Driver_Bot.Book.Host.EHentai
+namespace Discord_Driver_Bot.Gallery.Host.EHentai
 {
     static class TagTranslation
     {       

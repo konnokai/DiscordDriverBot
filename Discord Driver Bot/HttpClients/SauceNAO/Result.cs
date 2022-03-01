@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using static Discord_Driver_Bot.SauceNAOAPI.SauceNAO;
+using static Discord_Driver_Bot.HttpClients.SauceNAO.SauceNAOClient;
 
-namespace Discord_Driver_Bot.SauceNAOAPI
+namespace Discord_Driver_Bot.HttpClients.SauceNAO
 {
     public struct Result
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Discord_Driver_Bot.Book.Host.Pixiv
+namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 {
     public partial class IllustMetadata
     {

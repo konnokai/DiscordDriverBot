@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord_Driver_Bot.Command;
 using Html2Markdown;
 using Newtonsoft.Json;
@@ -7,21 +6,32 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Book.Host.Pixiv
+namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 {
     static class Pixiv
     {
-        public static void GetData(string url, ICommandContext e)
+        static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,8})");
+
+        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user,IInteractionContext interactionContext)
         {
-            url = url.Split(new string[] { "&fb", "?fb", "&p", "?p" }, StringSplitOptions.RemoveEmptyEntries)[0];
-            long id = url.FilterID();
+            var reg = regex.Match(url);
+            if (!reg.Success) return;
+
+            if (!int.TryParse(reg.Groups["Id"].Value, out int id))
+            {
+                Log.Error($"Pixiv Parse Error: {url} ({reg.Groups["id"].Value})");
+                return;
+            }
 
             /*if (url.Contains("member.php") || url.Contains("users")) GetMenberData(id, e);
-            else*/ if (url.Contains("member_illust.php") || url.Contains("artworks")) GetIllustData(id, e);
+            else*/
+            if (url.Contains("member_illust.php") || url.Contains("artworks")) await GetIllustData(id, guild, messageChannel, user, interactionContext);
         }
 
-        private static void GetIllustData(long id, ICommandContext e)
+        private static async Task GetIllustData(int id, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
             string thumbnailURL, title, description;
             List<string> tags;
@@ -38,9 +48,9 @@ namespace Discord_Driver_Bot.Book.Host.Pixiv
                 var result = GetPixivData(id.ToString());
                 var converter = new Converter();
 
-                if (!result.Status) 
+                if (!result.Status)
                 {
-                    Log.FormatColorWrite(result.Error, ConsoleColor.DarkRed);
+                    Log.Error(result.Error);
                     return;
                 }
 
@@ -50,11 +60,11 @@ namespace Discord_Driver_Bot.Book.Host.Pixiv
                 description = converter.Convert(illust.Description);
                 thumbnailURL = illust.Urls.Thumb.Replace("pximg.net", "pixiv.cat");
                 tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
- 
+
                 new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, thumbnailURL, tags).InsertNewData();
             }
 
-            Log.FormatColorWrite(thumbnailURL, ConsoleColor.Green);
+            Log.NewBook($"{thumbnailURL}");
 
             EmbedBuilder discordEmbedBuilder = new EmbedBuilder().WithOkColor()
                 .WithTitle(title)
@@ -62,20 +72,23 @@ namespace Discord_Driver_Bot.Book.Host.Pixiv
                 .WithUrl(string.Format("https://www.pixiv.net/artworks/{0}", id))
                 .AddField("標籤", string.Join(", ", tags), true);
 
-            if (e.Guild.Id != 463657254105645056)
+            if (guild.Id != 463657254105645056)
             {
                 if (tags.Contains("R-18"))
                 {
-                    if (((ITextChannel)e.Channel).IsNsfw) discordEmbedBuilder.WithThumbnailUrl(thumbnailURL);
+                    if (((ITextChannel)messageChannel).IsNsfw) discordEmbedBuilder.WithThumbnailUrl(thumbnailURL);
                     else discordEmbedBuilder.WithThumbnailUrl("https://s.pximg.net/www/images/pixiv_logo.gif");
                 }
                 else discordEmbedBuilder.WithThumbnailUrl(thumbnailURL);
             }
 
             if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
-            discordEmbedBuilder.WithFooter(e.User.Username + " ID: " + e.User.Id, e.User.GetAvatarUrl());
+            discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
 
-            e.Channel.SendMessageAsync(null, false, discordEmbedBuilder.Build());
+            if (interactionContext == null)
+                await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
+            else
+                await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
         }
 
         //private static void GetMenberData(long id, SocketMessage e)
@@ -123,7 +136,7 @@ namespace Discord_Driver_Bot.Book.Host.Pixiv
             }
             catch (Exception ex)
             {
-                Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed);
+                Log.Error(ex.ToString());
                 return (false, null, error);
             }
 
@@ -135,9 +148,9 @@ namespace Discord_Driver_Bot.Book.Host.Pixiv
             }
             else if (illust.Error)
             {
-                Log.FormatColorWrite(result, ConsoleColor.DarkRed);
-                if (!string.IsNullOrWhiteSpace( illust.Message))
-                return (false, null, illust.Message);
+                Log.Error(result);
+                if (!string.IsNullOrWhiteSpace(illust.Message))
+                    return (false, null, illust.Message);
             }
 
             return (true, illust, "");

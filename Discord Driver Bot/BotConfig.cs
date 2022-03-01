@@ -10,6 +10,7 @@ public class BotConfig
     public string ExHentaiCookiePassHash { get; set; } = "";
     public string ExHentaiCookieSK { get; set; } = "";
     public string SauceNAOApiKey { get; set; } = "";
+    public ulong TestSlashCommandGuildId { get; set; } = 0;
 
     public void InitBotConfig()
     {
@@ -80,6 +81,7 @@ public class BotConfig
             ExHentaiCookiePassHash = config.ExHentaiCookiePassHash;
             ExHentaiCookieSK = config.ExHentaiCookieSK;
             SauceNAOApiKey = config.SauceNAOApiKey;
+            TestSlashCommandGuildId = config.TestSlashCommandGuildId;
         }
         catch (Exception ex)
         {

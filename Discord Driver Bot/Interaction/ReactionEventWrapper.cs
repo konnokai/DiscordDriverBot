@@ -3,7 +3,7 @@ using Discord.WebSocket;
 using System;
 using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Command
+namespace Discord_Driver_Bot.Interaction
 {
     public sealed class ReactionEventWrapper : IDisposable
     {

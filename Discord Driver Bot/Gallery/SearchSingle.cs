@@ -1,10 +1,11 @@
-﻿using HtmlAgilityPack;
+﻿using Discord_Driver_Bot.HttpClients;
+using HtmlAgilityPack;
 using System;
 using System.Linq;
 
-namespace Discord_Driver_Bot.Book
+namespace Discord_Driver_Bot.Gallery
 {
-    public static class SearchFunction
+    public static class SearchSingle
     {
         public static bool SearchNHentai(string bookName, out string url, out string language)
         {
@@ -103,6 +104,7 @@ namespace Discord_Driver_Bot.Book
 
             return url != "" && language != "";
         }
+
         public static bool SearchE_Hentai(string bookName, out string url, out string language)
         {
             url = ""; language = "";
@@ -110,7 +112,7 @@ namespace Discord_Driver_Bot.Book
             try
             {
                 HtmlDocument htmlDocument = new HtmlDocument();
-                htmlDocument.Load(Host.EHentai.API.GetExHentaiData($"https://e-hentai.org/?f_search={bookName}"));
+                htmlDocument.Load(Program.EHentaiAPIClient.GetExHentaiDataAsync($"https://e-hentai.org/?f_search={bookName}").Result);
                 var htmlDocumentNode = htmlDocument.DocumentNode.Descendants().Where((x) => x.Name == "div" && x.HasClass("glink"));
 
                 foreach (HtmlNode item in htmlDocumentNode)
@@ -149,7 +151,7 @@ namespace Discord_Driver_Bot.Book
                     }
                 }
 
-                if (!Host.EHentai.API.IsGalleryCanRead(url)) language += "(需要銅星贊助)";
+                if (!EHentaiAPIClient.IsGalleryCanRead(url)) language += "(需要銅星贊助)";
             }
             catch (Exception) { }
 
@@ -163,7 +165,7 @@ namespace Discord_Driver_Bot.Book
             try
             {
                 HtmlDocument htmlDocument = new HtmlDocument();
-                htmlDocument.Load(Host.EHentai.API.GetExHentaiData(string.Format("https://exhentai.org/?f_search={0}", bookName)));
+                htmlDocument.Load(Program.EHentaiAPIClient.GetExHentaiDataAsync(string.Format("https://exhentai.org/?f_search={0}", bookName)).Result);
                 var htmlDocumentNode = htmlDocument.DocumentNode.Descendants().Where((x) => x.Name == "div" && x.HasClass("glink"));
 
                 foreach (HtmlNode item in htmlDocumentNode)

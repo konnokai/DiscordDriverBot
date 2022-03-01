@@ -1,12 +1,11 @@
 ﻿using Discord;
-using Discord.Commands;
-using Discord.WebSocket;
 using System;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.Book
+namespace Discord_Driver_Bot.Gallery
 {
     public static class Function
     {
@@ -43,43 +42,43 @@ namespace Discord_Driver_Bot.Book
             return url;
         }
 
-        public static bool ShowBookInfo(string url, ICommandContext e)
+        public static async Task<bool> ShowGalleryInfoAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext = null)
         {
             url = FilterUrl(url).Replace("https://", "").Replace("http://", "").Replace("www.", "").Replace("m.", "");
-            bool IsNSFW = (e.Channel as ITextChannel).IsNsfw;
+            bool IsNSFW = (messageChannel as ITextChannel).IsNsfw;
 
             switch (CheckBookHost(url))
             {
                 case BookHost.Wnacg:
                     {
-                        if (!IsNSFW && e.Message.Author.Id != Program.ApplicatonOwner.Id) return false;
-                        Host.Wnacg.GetData(url, e);
+                        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
+                        await Host.Wnacg.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                         return true;
                     }
                 case BookHost.E_Hentai:
                 case BookHost.ExHentai:
                     {
-                        if (!IsNSFW && e.Message.Author.Id != Program.ApplicatonOwner.Id) return false;
-                        Host.EHentai.EHentai.GetData(url, e);
+                        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
+                        await Host.EHentai.EHentai.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                         return true;
                     }
                 case BookHost.NHentai:
                     {
-                        if (!IsNSFW && e.Message.Author.Id != Program.ApplicatonOwner.Id) return false;
-                        Host.NHentai.NHentai.GetData(url, e);
+                        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
+                        await Host.NHentai.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                         return true;
                     }
                 case BookHost.Hitomi:
                     {
-                        if (!IsNSFW && e.Message.Author.Id != Program.ApplicatonOwner.Id) return false;
-                        Host.Hitomi.GetData(url, e);
+                        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
+                        await Host.Hitomi.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                         return true;
                     }
                 case BookHost.Pixiv:
                     {
                         if ((url.Contains("member_illust.php") && url.Contains("illust_id")) || url.Contains("artworks") /*|| url.Contains("users")*/)
                         {
-                            Host.Pixiv.Pixiv.GetData(url, e);
+                            await Host.Pixiv.Pixiv.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                             return true;
                         }
                         return false;
@@ -87,34 +86,6 @@ namespace Discord_Driver_Bot.Book
                 default:
                     {
                         return false;
-
-                        //if (IsNSFW)
-                        //{
-                        //    url = Host.Pixiv.FilterID(url);
-                        //    switch (url.Length)
-                        //    {
-                        //        case 5:
-                        //            url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", url);
-                        //            break;
-                        //        case 6:
-                        //            url = string.Format("https://nhentai.net/g/{0}", url);
-                        //            break;
-                        //        case 7:
-                        //            url = string.Format("https://hitomi.la/galleries/{0}.html", url);
-                        //            break;
-                        //        case 8:
-                        //            url = string.Format("https://www.pixiv.net/member_illust.php?mode=medium&illust_id={0}", url);
-                        //            break;
-                        //        case 18:
-                        //        case 19:
-                        //            url = string.Format("https://exhentai.org/g/{0}", url);
-                        //            break;
-                        //        default:
-                        //            return Task.FromResult(false);
-                        //    }
-
-                        //    ShowBookInfo(url, e);
-                        //}                        
                     }
             }
         }

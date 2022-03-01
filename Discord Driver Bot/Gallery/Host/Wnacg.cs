@@ -1,17 +1,17 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord_Driver_Bot.Command;
 using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web;
 
-namespace Discord_Driver_Bot.Book.Host
+namespace Discord_Driver_Bot.Gallery.Host
 {
-    public class Wnacg :IService
+    public class Wnacg : ICommandService
     {
-        public static void GetData(string url, ICommandContext e)
+        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
             if (url.Contains("?ctl"))
             {
@@ -24,7 +24,13 @@ namespace Discord_Driver_Bot.Book.Host
             if (urlSplit[2] == "aid")
             {
                 if (!Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID)))
-                { e.Channel.SendMessageAsync(string.Format("{0} ID {1} 不存在本子", e.Message.Author.Mention, ID.Split(new char[] { '.' })[0])); return; }
+                {
+                    if (interactionContext == null)
+                        await messageChannel.SendMessageAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                    else
+                        await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                    return;
+                }
             }
 
             try
@@ -89,21 +95,21 @@ namespace Discord_Driver_Bot.Book.Host
                     new SQLite.Table.BookData(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID), title, description, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.FormatColorWrite(string.Format("{0} ({1})", thumbnailURL, bookName), ConsoleColor.Green);
+                Log.NewBook($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()
                     .WithTitle(title)
                     .WithUrl(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID))
                     .WithDescription(description)
-                    .WithThumbnailUrl(e.Guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), item.Key == "標籤:" ? false : true);                
+                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), item.Key == "標籤:" ? false : true);
 
-                SearchFunction.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
-                SearchFunction.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
-                SearchFunction.SearchNHentai(bookName, out string nHentaiUrl, out string nHentaiLanguage);
+                SearchSingle.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
+                SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
+                SearchSingle.SearchNHentai(bookName, out string nHentaiUrl, out string nHentaiLanguage);
 
                 if (E_HentaiUrl != "" || nHentaiUrl != "")
                 {
@@ -115,13 +121,24 @@ namespace Discord_Driver_Bot.Book.Host
                 else discordEmbedBuilder.AddField("其他網站:", "無", true);
 
                 if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
-                discordEmbedBuilder.WithFooter(e.Message.Author.Username + " ID: " + e.Message.Author.Id, e.Message.Author.GetAvatarUrl());
-                e.Channel.SendMessageAsync(null, false, discordEmbedBuilder.Build());
+                discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
+
+                if (interactionContext == null)
+                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
+                else
+                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
             }
-            catch (Exception e2)
+            catch (Exception ex)
             {
-                Program.ApplicatonOwner.SendMessageAsync(string.Format("{0} ({1})\n{2}\n{3}", e.Message.Author.Username, e.Channel.Name, "https://" + url, e2.Message + "\n" + e2.StackTrace));
-                Log.FormatColorWrite(e2.Message + "\r\n" + e2.StackTrace, ConsoleColor.Red);
+#if RELEASE
+                await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
+                    .WithErrorColor()
+                    .WithTitle($"{user.Username} ({messageChannel.Name})")
+                    .WithUrl($"https://{url}")
+                    .WithDescription(ex.ToString())
+                    .Build());
+#endif
+                Log.Error(ex.ToString());
             }
         }
     }

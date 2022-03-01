@@ -5,15 +5,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
+using Discord_Driver_Bot.Gallery.Host.EHentai;
 
-namespace Discord_Driver_Bot.Book.Host.EHentai
+namespace Discord_Driver_Bot.HttpClients
 {
-    class API
+    public class EHentaiAPIClient
     {
-        static CookieContainer Cookie = new CookieContainer();
+        HttpClient Client;
+        CookieContainer Cookie = new CookieContainer();
 
-        static API()
+        public EHentaiAPIClient()
         {
             Cookie.Add(new Cookie("ipb_member_id", Program.BotConfig.ExHentaiCookieMemberId, "/", ".e-hentai.org"));
             Cookie.Add(new Cookie("ipb_member_id", Program.BotConfig.ExHentaiCookieMemberId, "/", ".exhentai.org"));
@@ -23,30 +27,32 @@ namespace Discord_Driver_Bot.Book.Host.EHentai
             Cookie.Add(new Cookie("sk", Program.BotConfig.ExHentaiCookieSK, "/", ".exhentai.org"));
             Cookie.Add(new Cookie("nw", "1", "/", ".e-hentai.org"));
             Cookie.Add(new Cookie("nw", "1", "/", ".exhentai.org"));
+
+            HttpClientHandler handler = new HttpClientHandler();
+            handler.CookieContainer = Cookie;
+
+            Client = new HttpClient(handler, true);
         }
 
-        internal static Stream GetExHentaiData(string URL)
+        internal async Task<Stream> GetExHentaiDataAsync(string URL)
         {
             try
             {
-                HttpWebRequest WR = (HttpWebRequest)WebRequest.Create(URL);
-                WR.CookieContainer = Cookie;
-                WR.Method = "GET";
-                return WR.GetResponse().GetResponseStream();
+                return await Client.GetStreamAsync(URL);
             }
             catch (Exception) { throw; }
         }
 
-        public static Gmetadata GetGalleryMetadata(int id, string token)
+        public async Task<Gmetadata> GetGalleryMetadataAsync(int id, string token)
         {
             try
             {
-                return GetGalleryMetadata(new Dictionary<int, string> { { id, token } })[0];
+                return (await GetGalleryMetadataAsync(new Dictionary<int, string> { { id, token } }))[0];
             }
             catch (Exception) { throw; }
         }
 
-        public static List<Gmetadata> GetGalleryMetadata(Dictionary<int, string> data)
+        public async Task<List<Gmetadata>> GetGalleryMetadataAsync(Dictionary<int, string> data)
         {
             StringBuilder sb = new StringBuilder();
             StringWriter sw = new StringWriter(sb);
@@ -77,12 +83,12 @@ namespace Discord_Driver_Bot.Book.Host.EHentai
 
             try
             {
-                return JsonConvert.DeserializeObject<GmetadataResponse>(PostAPIData(sb.ToString())).gmetadata;
+                return JsonConvert.DeserializeObject<GmetadataResponse>(await PostAPIDataAsync(sb.ToString())).gmetadata;
             }
             catch (Exception) { throw; }
         }
 
-        public static Tokenlist GetGalleryToken(int id, string token, int page)
+        public async Task<Tokenlist> GetGalleryTokenAsync(int id, string token, int page)
         {
             StringBuilder sb = new StringBuilder();
             StringWriter sw = new StringWriter(sb);
@@ -109,7 +115,7 @@ namespace Discord_Driver_Bot.Book.Host.EHentai
 
             try
             {
-                return JsonConvert.DeserializeObject<TokenlistResponse>(PostAPIData(sb.ToString())).tokenlist[0];
+                return JsonConvert.DeserializeObject<TokenlistResponse>(await PostAPIDataAsync(sb.ToString())).tokenlist[0];
             }
             catch (Exception) { throw; }
         }
@@ -128,7 +134,7 @@ namespace Discord_Driver_Bot.Book.Host.EHentai
             return isE_hentaiCanRead;
         }
 
-        private static string PostAPIData(string data)
+        private async Task<string> PostAPIDataAsync(string data)
         {
             if (data == null)
                 throw new ArgumentNullException("未包含Data值");
@@ -136,59 +142,12 @@ namespace Discord_Driver_Bot.Book.Host.EHentai
             try
             {
                 byte[] byteArray = Encoding.Default.GetBytes(data);
-                HttpWebRequest WR = (HttpWebRequest)WebRequest.Create("https://api.e-hentai.org/api.php");
-                WR.Method = "POST";
-                WR.ContentType = "application/x-www-form-urlencoded";
-                WR.ContentLength = byteArray.Length;
-                using (Stream dataStream = WR.GetRequestStream()) { dataStream.Write(byteArray, 0, byteArray.Length); }
-                using (StreamReader SR = new StreamReader(WR.GetResponse().GetResponseStream())) { return SR.ReadToEnd(); }
+                var responseMessage = await Client.PostAsync("https://api.e-hentai.org/api.php", new ByteArrayContent(byteArray));
+                responseMessage.EnsureSuccessStatusCode();
+
+                return await responseMessage.Content.ReadAsStringAsync();
             }
             catch (Exception) { throw; }
-        }
-
-        public class Gmetadata
-        {
-            public int gid { get; set; }
-            public string token { get; set; }
-            public string archiver_key { get; set; }
-            public string title { get; set; }
-            public string title_jpn { get; set; }
-            public string category { get; set; }
-            public string thumb { get; set; }
-            public string uploader { get; set; }
-            public string posted { get; set; }
-            public string filecount { get; set; }
-            public string filesize { get; set; }
-            public bool expunged { get; set; }
-            public string rating { get; set; }
-            public string torrentcount { get; set; }
-            public List<string> tags { get; set; }
-        }
-
-        public class GmetadataResponse
-        {
-            public List<Gmetadata> gmetadata { get; set; }
-        }
-
-        public class Tokenlist
-        {
-            public int gid { get; set; }
-            public string token { get; set; }
-        }
-
-        public class TokenlistResponse
-        {
-            public List<Tokenlist> tokenlist { get; set; }
-        }
-
-
-        public class GalleryData
-        {
-            public int ID { get; set; }
-            public string Token { get; set; }
-            public string Title { get; set; }
-            public string Type { get; set; }
-            public string Post_Time { get; set; }
         }
     }
 }

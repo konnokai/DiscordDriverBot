@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Command
 {
-    public class CommandHandler : IService
+    public class CommandHandler : ICommandService
     {
         private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
@@ -51,8 +51,8 @@ namespace Discord_Driver_Bot.Command
 
                     if (!result.IsSuccess)
                     {
-                        Log.FormatColorWrite($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message} 發生錯誤", ConsoleColor.Red);
-                        Log.FormatColorWrite(result.ErrorReason, ConsoleColor.Red);
+                        Log.Error($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message} 發生錯誤");
+                        Log.Error(result.ErrorReason);
                         await context.Channel.SendMessageAsync(result.ErrorReason);
                     }
                     else
@@ -60,7 +60,7 @@ namespace Discord_Driver_Bot.Command
                         if ((context.Message.Author.Id == Program.ApplicatonOwner.Id || guild.Id == 429605944117297163) &&
                             !(context.Message.Content.StartsWith("!!sauce") && context.Message.Attachments.Count == 1))
                             await message.DeleteAsync();
-                        Log.FormatColorWrite($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message}", ConsoleColor.DarkYellow);
+                        Log.Info($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message}");
                     }
                 }
             }
@@ -69,7 +69,7 @@ namespace Discord_Driver_Bot.Command
 #if DEBUG
                 foreach (string item in message.Content.Split(new char[] { '\n' }))
                 {
-                    Book.Function.ShowBookInfo(item, new SocketCommandContext(_client, message));
+                    await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author);
                 }
 #elif RELEASE
                 string content = message.Content;
@@ -94,7 +94,7 @@ namespace Discord_Driver_Bot.Command
 
                             do
                             { rndId = random.Next(1, 350000).ToString(); }
-                            while (!Book.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
+                            while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
 
                             break;
                         case 1:
@@ -102,15 +102,15 @@ namespace Discord_Driver_Bot.Command
 
                             do
                             { rndId = random.Next(1, 100000).ToString(); }
-                            while (!Book.Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", rndId)));
+                            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", rndId)));
 
                             break;
                         case 2:
                             rndHost = "p";
 
                             do
-                            { rndId = random.Next(1, 80000000).ToString(); }
-                            while (!Book.Function.GetIDIsExist(string.Format("https://www.pixiv.net/artworks/{0}", rndId)));
+                            { rndId = random.Next(80000000, 100000000).ToString(); }
+                            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.pixiv.net/artworks/{0}", rndId)));
 
                             break;
                         case 3:
@@ -118,7 +118,7 @@ namespace Discord_Driver_Bot.Command
 
                             do
                             { rndId = random.Next(800000, 1500000).ToString(); }
-                            while (!Book.Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}.html", rndId)));
+                            while (!Gallery.Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}.html", rndId)));
 
                             break;
                     }
@@ -139,18 +139,18 @@ namespace Discord_Driver_Bot.Command
                         {
                             try
                             {
-                                string url = Book.Function.FilterUrl(item);
-                                Book.Function.BookHost host = Book.Function.CheckBookHost(url);
-                                if (host != Book.Function.BookHost.None && host != Book.Function.BookHost.Pixiv)
+                                string url = Gallery.Function.FilterUrl(item);
+                                Gallery.Function.BookHost host = Gallery.Function.CheckBookHost(url);
+                                if (host != Gallery.Function.BookHost.None && host != Gallery.Function.BookHost.Pixiv)
                                 {
                                     await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池貼本 ({1})", guildUser.Mention, channel.Mention));
-                                    Log.FormatColorWrite(string.Format("{0} 在舞池貼本 ({1}): {2}", guildUser.Username, channel.Name, content), ConsoleColor.DarkRed);
+                                    Log.Error(string.Format("{0} 在舞池貼本 ({1}): {2}", guildUser.Username, channel.Name, content));
                                     return;
                                 }
                                 else if (!url.StartsWith("http") && message.Attachments.Count == 0)
                                 {
                                     await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                                    Log.FormatColorWrite(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content), ConsoleColor.DarkRed);
+                                    Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
                                     return;
                                 }
                             }
@@ -163,12 +163,12 @@ namespace Discord_Driver_Bot.Command
                         {
                             bool FUCKYOU = true;
                             foreach (string item in content.Split(new char[] { '\n' }))
-                                if (Book.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
+                                if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
 
                             if (FUCKYOU)
                             {
                                 await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                                Log.FormatColorWrite(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content), ConsoleColor.DarkRed);
+                                Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
                                 return;
                             }
                         }
@@ -183,12 +183,12 @@ namespace Discord_Driver_Bot.Command
 
                         bool FUCKYOU = true;
                         foreach (string item in content.Split(new char[] { '\n' }))
-                            if (Book.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
+                            if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
 
                         if (FUCKYOU)
                         {
                             await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                            Log.FormatColorWrite(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content), ConsoleColor.DarkRed);
+                            Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
                             return;
                         }
                     }
@@ -199,9 +199,9 @@ namespace Discord_Driver_Bot.Command
 
                 foreach (string item in content.Split(new char[] { '\n' }))
                 {
-                    if (Book.Function.ShowBookInfo(item, new SocketCommandContext(_client, message)))
+                    if (await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author))
                     {
-                        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}");
+                        Console.WriteLine($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}");
                         SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
                     }
                 }

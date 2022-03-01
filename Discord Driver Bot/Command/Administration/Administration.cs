@@ -29,9 +29,9 @@ namespace Discord_Driver_Bot.Command.Administration
             if ((await Context.Guild.GetUserAsync(uid)) != null)
             {
                 await _admin.ClearUser((ITextChannel)Context.Channel, uid);
-                await ReplyAsync("已清除");
+                await Context.Channel.SendConfirmAsync("已清除");
             }
-            else await ReplyAsync("找不到指定的成員");
+            else await Context.Channel.SendErrorAsync("找不到指定的成員");
         }
 
         [RequireContext(ContextType.Guild)]
@@ -74,7 +74,7 @@ namespace Discord_Driver_Bot.Command.Administration
                     Program.updateStatus = Program.UpdateStatus.ReadBook;
                     break;
                 default:
-                    await Context.Channel.SendMessageAsync(string.Format("找不到 {0} 狀態", stats));
+                    await Context.Channel.SendErrorAsync(string.Format("找不到 {0} 狀態", stats));
                     return;
             }
             Program.ChangeStatus();
@@ -106,8 +106,7 @@ namespace Discord_Driver_Bot.Command.Administration
                     embedBuilder.AddField(item.Name, "ID: " + item.Id +
                         "\nOwner ID: " + item.OwnerId +
                         "\n人數: " + totalMember.ToString() +
-                        "\nBot擁有者是否在該伺服器: " + (isBotOwnerInGuild ? "是" : "否") +
-                        "\n是否已信任該伺服器: " + (isBotOwnerInGuild || Program.trustedGuildList.Any((x) => x.GuildId == item.Id) ? "是" : "否"));
+                        "\nBot擁有者是否在該伺服器: " + (isBotOwnerInGuild ? "是" : "否"));
                 }
 
                 return embedBuilder;
@@ -121,7 +120,7 @@ namespace Discord_Driver_Bot.Command.Administration
         public async Task DieAsync()
         {
             Program.isDisconnect = true;
-            await ReplyAsync("關閉中");
+            await Context.Channel.SendConfirmAsync("關閉中");
         }
 
         [Command("Leave")]
@@ -132,25 +131,9 @@ namespace Discord_Driver_Bot.Command.Administration
             if (gid == 0) { await ReplyAsync("伺服器ID為空"); return; }
 
             try { await _client.GetGuild(gid).LeaveAsync(); }
-            catch (Exception) { await ReplyAsync("失敗，請確認ID是否正確"); return; }
+            catch (Exception) { await Context.Channel.SendErrorAsync("失敗，請確認ID是否正確"); return; }
 
             await ReplyAsync("✅");
-        }
-
-        [Command("BigLeave")]
-        [RequireOwner]
-        [Alias("BLeave")]
-        public async Task BigLeave()
-        {
-            List<SocketGuild> guilds = new List<SocketGuild>(_client.Guilds.Where((x) => x.MemberCount <= 10 && !Program.trustedGuildList.Any((y) => y.GuildId == x.Id)));
-
-            foreach (var item in guilds)
-            {
-                await item.LeaveAsync();
-                Log.FormatColorWrite("已退出 " + item.Name + " 人數 " + item.MemberCount.ToString());
-            }
-
-            await ReplyAsync("Done");
         }
 
         [Command("GetInviteURL")]
@@ -184,33 +167,7 @@ namespace Discord_Driver_Bot.Command.Administration
                     await ReplyAsync(invite.Url);
                 }
             }
-            catch (Exception ex) { Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.Red); }
-        }
-
-        [Command("AddTrustedGuild")]
-        [Summary("新增信任的Guild")]
-        [Alias("ATG")]
-        [RequireOwner]
-        public async Task AddTrustedGuild([Summary("伺服器ID")] ulong gid)
-        {
-            if (_client.Guilds.Any((x) => x.Id == gid))
-            {
-                SocketGuild guild = _client.Guilds.First((x) => x.Id == gid);
-
-                if (!Program.trustedGuildList.Any((x) => x.GuildId == gid))
-                {
-                    using (var db = new SQLite.DriverContext())
-                    {
-                        db.TrustedGuild.Add(new SQLite.Table.TrustedGuild() { GuildId = gid });
-                        db.SaveChanges();
-
-                        Program.trustedGuildList.Add(new SQLite.Table.TrustedGuild() { GuildId = gid });
-                        await ReplyAsync($"已加入 {guild.Name}({guild.Id}) 到信任的清單");
-                    }
-                }
-                else await ReplyAsync($"錯誤，{guild.Name}({guild.Id}) 已存在於信任的清單");
-            }
-            else await ReplyAsync("找不到該伺服器");
+            catch (Exception ex) { Log.Error(ex.ToString()); await ReplyAsync(ex.Message); }
         }
 
         [Command("redb")]
@@ -242,11 +199,11 @@ namespace Discord_Driver_Bot.Command.Administration
                     db.Database.ExecuteSqlRaw("DELETE FROM BookData");
                     db.BookData.AddRange(list);
                     db.SaveChanges();
-                    await ReplyAsync($"{old}/{db.BookData.Count()}");
+                    await Context.Channel.SendConfirmAsync($"{old}/{db.BookData.Count()}");
                 }
                 catch (Exception ex)
                 {
-                    Log.FormatColorWrite(ex.Message, ConsoleColor.DarkRed);
+                    Log.Error(ex.ToString());
                 }
             }
         }

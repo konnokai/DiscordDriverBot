@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace Discord_Driver_Bot.HttpClients
+namespace Discord_Driver_Bot.HttpClients.NHentai
 {
     public class NHentaiAPIClient
     {
@@ -14,23 +14,23 @@ namespace Discord_Driver_Bot.HttpClients
             Client = new HttpClient();
         }
 
-        public async Task<Gallery> GetGalleryAsync(string ID)
+        public async Task<Gallery> GetGalleryAsync(string id)
         {
             try
             {
-                string json = await Client.GetStringAsync($"https://nhentai.net/api/gallery/{ID}");
+                string json = await Client.GetStringAsync($"https://nhentai.net/api/gallery/{id}");
                 if (json.Contains("error")) return null;
 
                 return JsonConvert.DeserializeObject<Gallery>(json);
             }
             catch (Exception)
             {
-                return null;
+                throw;
             }
         }
     }
 
-    public partial class Gallery
+    public class Gallery
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -60,7 +60,7 @@ namespace Discord_Driver_Bot.HttpClients
         public long NumFavorites { get; set; }
     }
 
-    public partial class Images
+    public class Images
     {
         [JsonProperty("pages")]
         public List<Cover> Pages { get; set; }
@@ -72,7 +72,7 @@ namespace Discord_Driver_Bot.HttpClients
         public Cover Thumbnail { get; set; }
     }
 
-    public partial class Cover
+    public class Cover
     {
         [JsonProperty("t")]
         public string T { get; set; }
@@ -102,7 +102,7 @@ namespace Discord_Driver_Bot.HttpClients
         public long Count { get; set; }
     }
 
-    public partial class Title
+    public class Title
     {
         [JsonProperty("english")]
         public string English { get; set; }

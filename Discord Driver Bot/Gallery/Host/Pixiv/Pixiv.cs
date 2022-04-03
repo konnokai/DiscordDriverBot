@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -13,6 +14,8 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 {
     static class Pixiv
     {
+        static HttpClient HttpClient = new HttpClient();
+
         static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,8})");
 
         public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user,IInteractionContext interactionContext)
@@ -45,12 +48,11 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
             }
             else
             {
-                var result = GetPixivData(id.ToString());
+                var result = await GetIllustDataFromAjaxAsync(id.ToString());
                 var converter = new Converter();
 
                 if (!result.Status)
                 {
-                    Log.Error(result.Error);
                     return;
                 }
 
@@ -85,10 +87,24 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
             if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
             discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
 
-            if (interactionContext == null)
-                await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
-            else
-                await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+            try
+            {
+                if (interactionContext == null)
+                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
+                else
+                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+            }
+            catch (Exception ex)
+            {
+#if RELEASE
+                if (ex.Message.Contains("50013"))
+                    await user.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言權限\n請向管理員要求提供Bot權限")
+                        .Build());
+#endif
+            }
         }
 
         //private static void GetMenberData(long id, SocketMessage e)
@@ -122,17 +138,14 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
         //    e.Channel.SendMessageAsync(null, false, discordEmbedBuilder.Build());
         //}
 
-        private static (bool Status, IllustMetadata Reslut, string Error) GetPixivData(string id)
+        private static async Task<(bool Status, IllustMetadata Reslut, string Error)> GetIllustDataFromAjaxAsync(string id)
         {
             string result = "";
             string error = "發生了未知的錯誤";
 
             try
             {
-                using (WebClient webClient = new WebClient())
-                {
-                    result = webClient.DownloadString($"https://www.pixiv.net/ajax/illust/{id}");
-                }
+                result = await HttpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
             }
             catch (Exception ex)
             {

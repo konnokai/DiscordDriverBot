@@ -1,4 +1,5 @@
-﻿using HtmlAgilityPack;
+﻿using Discord_Driver_Bot.Gallery.Host.EHentai;
+using HtmlAgilityPack;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Discord_Driver_Bot.Gallery.Host.EHentai;
 
 namespace Discord_Driver_Bot.HttpClients
 {

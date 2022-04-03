@@ -21,7 +21,7 @@ namespace Discord_Driver_Bot.Gallery
             if (url.StartsWith("nhentai.net/g/")) return BookHost.NHentai;
             if (url.StartsWith("e-hentai.org/g/")|| url.StartsWith("e-hentai.org/s/")) return BookHost.E_Hentai;
             if (url.StartsWith("exhentai.org/g/") || url.StartsWith("exhentai.org/s/")) return BookHost.ExHentai;
-            if (url.StartsWith("hitomi.la/galleries/")) return BookHost.Hitomi;
+            if (url.StartsWith("hitomi.la/galleries/") || url.StartsWith("hitomi.la/reader/")) return BookHost.Hitomi;
             if (url.StartsWith("pixiv.net")) return BookHost.Pixiv;
             return BookHost.None;
         }

@@ -4,6 +4,8 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Discord_Driver_Bot.Command;
 using Discord_Driver_Bot.HttpClients;
+using Discord_Driver_Bot.HttpClients.Ascii2D;
+using Discord_Driver_Bot.HttpClients.SauceNAO;
 using Discord_Driver_Bot.Interaction;
 using Discord_Driver_Bot.SQLite.Table;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,8 +21,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Discord_Driver_Bot.HttpClients.Ascii2D;
-using Discord_Driver_Bot.HttpClients.SauceNAO;
 
 namespace Discord_Driver_Bot
 {
@@ -32,7 +32,8 @@ namespace Discord_Driver_Bot
         public static List<BookData> ListBookLogData { get; set; }
         public static BotConfig BotConfig { get; set; } = new();
         public static EHentaiAPIClient EHentaiAPIClient { get; set; }
-        public static NHentaiAPIClient NHentaiAPIClient { get; set; } = new();
+        public static HttpClients.NHentai.NHentaiAPIClient NHentaiAPIClient { get; set; } = new();
+        public static HttpClients.Hitomi.HitomiAPIClient HitomiAPIClient { get; set; } = new();
 
         public static IUser ApplicatonOwner { get; private set; } = null;
         public static UpdateStatus updateStatus = UpdateStatus.Guild;
@@ -88,7 +89,7 @@ namespace Discord_Driver_Bot
             new Program().MainAsync().GetAwaiter().GetResult();
             #endregion
         }
-        
+
         private static void TimerHandler(object state)
         {
             try

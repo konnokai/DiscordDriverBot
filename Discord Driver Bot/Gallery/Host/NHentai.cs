@@ -18,7 +18,7 @@ namespace Discord_Driver_Bot.Gallery.Host
             if (!Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}", ID)))
             {
                 if (interactionContext == null)
-                    await messageChannel.SendMessageAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                    await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
                 else
                     await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
                 return;
@@ -40,7 +40,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                 else
                 {
                     dicTag = new Dictionary<string, List<string>>();
-                    HttpClients.Gallery gallery = await Program.NHentaiAPIClient.GetGalleryAsync(ID);
+                    HttpClients.NHentai.Gallery gallery = await Program.NHentaiAPIClient.GetGalleryAsync(ID);
 
                     thumbnailURL = $"https://t.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
                     title = gallery.Title.English;
@@ -78,7 +78,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                 SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
                 SearchSingle.SearchWnacg(bookName, out string wnacgUrl, out string wnacgLanguage);
 
-                if (E_HentaiUrl != "" || wnacgUrl != "")
+                if (ExHentaiUrl != "" || wnacgUrl != "")
                 {
                     discordEmbedBuilder.AddField("其他網站(不一定正確):",
                         (E_HentaiUrl != "" ? string.Format("[E-站({0})]({1})\t", E_HentaiLanguage, E_HentaiUrl) : "") +
@@ -97,12 +97,18 @@ namespace Discord_Driver_Bot.Gallery.Host
             catch (Exception ex)
             {
 #if RELEASE
-                await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
-                    .WithErrorColor()
-                    .WithTitle($"{user.Username} ({messageChannel.Name})")
-                    .WithUrl($"https://{url}")
-                    .WithDescription(ex.ToString())
-                    .Build());
+                if (ex.Message.Contains("50013"))
+                    await user.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言權限\n請向管理員要求提供Bot權限")
+                        .Build());
+                else
+                    await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
+                        .WithUrl($"https://{url}")
+                        .WithDescription(ex.ToString())
+                        .Build());
 #endif
                 Log.Error(ex.ToString());
             }

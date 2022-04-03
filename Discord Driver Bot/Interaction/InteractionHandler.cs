@@ -2,11 +2,9 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Collections.Generic;
 
 namespace Discord_Driver_Bot.Interaction
 {

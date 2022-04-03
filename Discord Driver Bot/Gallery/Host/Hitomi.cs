@@ -1,9 +1,9 @@
 ﻿using Discord;
 using Discord_Driver_Bot.Command;
-using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -11,61 +11,54 @@ namespace Discord_Driver_Bot.Gallery.Host
 {
     class Hitomi
     {
+        static Regex hashRegex = new Regex(@"[0-9a-f]{61}([0-9a-f]{2})([0-9a-f])");
+
         public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
             try
             {
-                string[] urlSplit = url.Split(new char[] { '?' })[0].Trim('/').Split(new char[] { '/' });
-                string ID = urlSplit[2];
-                if (!ID.EndsWith(".html")) ID += ".html";
+                string[] urlSplit = url.Split(new string[] { "?", "#" }, StringSplitOptions.RemoveEmptyEntries)[0].Trim('/').Split(new char[] { '/' });
+                string id = urlSplit[2].Replace(".html", "");
 
-                if (!Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}", ID)))
+                if (!Function.GetIDIsExist($"https://hitomi.la/galleries/{id}.html"))
                 {
                     if (interactionContext == null)
-                        await messageChannel.SendMessageAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                        await messageChannel.SendErrorAsync($"{user.Mention} ID {id.Split(new char[] { '.' })[0]} 不存在本子");
                     else
-                        await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                        await interactionContext.Interaction.FollowupAsync($"ID {id.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
                     return;
                 }
 
-                string thumbnailURL, title, artist, bookName;
+                string thumbnailURL = "", title = "", artist = "", bookName = "";
                 Dictionary<string, List<string>> dicTag;
 
-                if (SQLite.SQLiteFunction.GetBookData(string.Format("https://hitomi.la/galleries/{0}", ID), out SQLite.Table.BookData bookData))
+                if (SQLite.SQLiteFunction.GetBookData($"https://hitomi.la/galleries/{id}.html", out SQLite.Table.BookData bookData))
                 {
                     thumbnailURL = bookData.ThumbnailUrl;
                     title = bookData.Title;
                     artist = bookData.ExtensionData;
                     bookName = title.Split(new char[] { '|' })[0].Trim().FormatBookName();
-                    dicTag = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(bookData.Tags.Trim('"').Replace("\\", string.Empty));
+                    dicTag = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(bookData.Tags);
                 }
                 else
                 {
-                    dicTag = new Dictionary<string, List<string>>();
-                    HtmlWeb htmlWeb = new HtmlWeb();
-                    IEnumerable<HtmlNode> htmlDocumentNode = htmlWeb.Load(string.Format("https://hitomi.la/galleries/{0}", ID)).DocumentNode.Descendants();
+                    HttpClients.Hitomi.Gallery gallery = await Program.HitomiAPIClient.GetGalleryAsync(id);
 
-                    var realUrl = htmlDocumentNode.First((x) => x.Name == "a").GetAttributeValue("href", "");
-                    htmlDocumentNode = htmlWeb.Load(realUrl).DocumentNode.Descendants();
+                    var hashMatch = hashRegex.Match(gallery.Files.First().Hash);
+                    //https://pixiv.cat/reverseproxy.html
+                    thumbnailURL = $"https://hitomi-spoof.junrasp.com/avifsmallbigtn/{hashMatch.Groups[2]}/{hashMatch.Groups[1]}/{hashMatch.Value}.avif";
 
-                    thumbnailURL = "https:" + htmlDocumentNode.First((x) => x.Name == "img" && x.Attributes.Any((x) => x.Name == "srcset")).GetAttributeValue("srcset", "").Split(new char[] { ' ' })[0];
-                    htmlDocumentNode = htmlDocumentNode.First((x) => (x.Name == "div" && x.HasClass("gallery"))).Descendants();
-                    title = HttpUtility.HtmlDecode(htmlDocumentNode.First((x) => (x.Name == "a")).InnerText);
-                    artist = HttpUtility.HtmlDecode(htmlDocumentNode.First((x) => (x.Name == "a" && x.ParentNode.ParentNode.HasClass("comma-list"))).InnerText);
+                    title = HttpUtility.HtmlDecode(gallery.Title);
+                    artist = HttpUtility.HtmlDecode(gallery.Artists.First().Name);
                     bookName = title.Split(new char[] { '|' })[0].Trim().FormatBookName();
 
-                    foreach (HtmlNode item2 in htmlDocumentNode.First((x) => x.Name == "div" && x.HasClass("gallery-info")).Descendants().Where((x) => x.Name == "tr"))
-                    {
-                        string tagName = item2.Descendants().First((x) => x.Name == "td").InnerText;
-                        if (tagName == "") continue;
+                    dicTag = new Dictionary<string, List<string>>();
+                    if (gallery.Tags.Any((x) => !string.IsNullOrEmpty(x.Female)))
+                        dicTag.Add("女性", gallery.Tags.Where((x) => !string.IsNullOrEmpty(x.Female)).Select((x) => x.Name).ToList());
+                    if (gallery.Tags.Any((x) => !string.IsNullOrEmpty(x.Male)))
+                        dicTag.Add("男性", gallery.Tags.Where((x) => !string.IsNullOrEmpty(x.Male)).Select((x) => x.Name).ToList());
 
-                        List<string> tagList = new List<string>(item2.Descendants().Where((x) => x.Name == "#text" && x.ParentNode.Name == "a").Select((x) => x.InnerText.Trim()));
-                        if (tagList.Count == 0) tagList.Add("-");
-
-                        dicTag.Add(tagName, tagList);
-                    }
-
-                    new SQLite.Table.BookData(string.Format("https://hitomi.la/galleries/{0}", ID), title, artist, thumbnailURL, dicTag).InsertNewData();
+                    new SQLite.Table.BookData(string.Format("https://hitomi.la/galleries/{0}", id), title, artist, thumbnailURL, dicTag).InsertNewData();
                 }
 
                 Log.NewBook($"{thumbnailURL} ({bookName})");
@@ -74,18 +67,18 @@ namespace Discord_Driver_Bot.Gallery.Host
                     .WithOkColor()
                     .WithTitle(title)
                     .WithDescription(artist)
-                    .WithUrl(string.Format("https://hitomi.la/galleries/{0}", ID))
-                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                    .WithUrl($"https://hitomi.la/galleries/{id}.html");
+                    //.WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), true);
+                    discordEmbedBuilder.AddField(item.Key, string.Join("\n", item.Value), false);
 
                 SearchSingle.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
                 SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
                 SearchSingle.SearchNHentai(bookName, out string nHentaiUrl, out string nHentaiLanguage);
                 SearchSingle.SearchWnacg(bookName, out string wnacgUrl, out string wnacgLanguage);
 
-                if (E_HentaiUrl != "" || nHentaiUrl != "" || wnacgUrl != "")
+                if (ExHentaiUrl != "" || nHentaiUrl != "" || wnacgUrl != "")
                 {
                     discordEmbedBuilder.AddField("其他網站(不一定正確):",
                         (E_HentaiUrl != "" ? string.Format("[E-站({0})]({1})\t", E_HentaiLanguage, E_HentaiUrl) : "") +
@@ -105,15 +98,21 @@ namespace Discord_Driver_Bot.Gallery.Host
             catch (Exception ex)
             {
 #if RELEASE
-                await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
-                    .WithErrorColor()
-                    .WithTitle($"{user.Username} ({messageChannel.Name})")
-                    .WithUrl($"https://{url}")
-                    .WithDescription(ex.ToString())
-                    .Build());
+                if (ex.Message.Contains("50013"))
+                    await user.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言權限\n請向管理員要求提供Bot權限")
+                        .Build());
+                else
+                    await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
+                        .WithUrl($"https://{url}")
+                        .WithDescription(ex.ToString())
+                        .Build());
 #endif
                 Log.Error(ex.ToString());
             }
         }
     }
-}
+} //https://btn.hitomi.la/avifsmallbigtn/a/6b/bd4585ff4aef873a1e70448ce4420b1adb1aa54e789a0bed6dfef192c51396ba.avif

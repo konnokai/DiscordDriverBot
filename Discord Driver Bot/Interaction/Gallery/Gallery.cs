@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using Discord_Driver_Bot.Interaction.Attribute;
 using Discord_Driver_Bot.HttpClients.Ascii2D;
 using Discord_Driver_Bot.HttpClients.SauceNAO;
@@ -177,7 +178,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             }
 
             string url = message.Attachments.Count > 0 ? message.Attachments.First().Url : message.Content;
-            await Context.Interaction.DeferAsync(true);
+            await Context.Interaction.DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
 
             try
             {
@@ -204,6 +205,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                     catch (Exception ex)
                     {
                         await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
+                        Log.Error(url);
                         Log.Error(ex.ToString());
                     }
                 }
@@ -215,6 +217,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             catch (Exception ex)
             {
                 await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
+                Log.Error(url);
                 Log.Error(ex.ToString());
             }
         }
@@ -231,7 +234,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             }
 
             string url = message.Attachments.Count > 0 ? message.Attachments.First().Url : message.Content;
-            await Context.Interaction.DeferAsync(true);
+            await Context.Interaction.DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
 
             try
             {
@@ -262,6 +265,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             catch (Exception ex)
             {
                 await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
+                Log.Error(url);
                 Log.Error(ex.ToString());
             }
         }

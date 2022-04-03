@@ -201,7 +201,7 @@ namespace Discord_Driver_Bot.Command
                 {
                     if (await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author))
                     {
-                        Console.WriteLine($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}");
+                        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
                         SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
                     }
                 }

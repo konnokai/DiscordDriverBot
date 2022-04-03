@@ -36,14 +36,38 @@ namespace Discord_Driver_Bot.HttpClients.Ascii2D
                 var detail = info.SelectSingleNode("div[@class='detail-box gray-link']");
                 if (detail.ChildNodes.Count <= 1) continue;
 
-                var imageBox = item.SelectSingleNode("div[@class='col-xs-12 col-sm-12 col-md-4 col-xl-4 text-xs-center image-box']").SelectSingleNode("img");
+                string thumbnail = "";
+                try
+                {
+                    var imageBox = item.SelectSingleNode("div[@class='col-xs-12 col-sm-12 col-md-4 col-xl-4 text-xs-center image-box']").SelectSingleNode("img");
+                    thumbnail = "https://ascii2d.net" + imageBox.GetAttributeValue("src", "");
+                }
+                catch (System.Exception) { }
 
-                var host = detail.SelectSingleNode("h6/small").InnerText;
-                var nameAndAuthor = detail.SelectNodes("h6/a[@href]");
+                var strong = "";
+                try
+                {
+                    strong = detail.SelectSingleNode("strong").InnerText;
+                    strong += ": ";
+                }
+                catch (System.Exception) { }
+
+                string host = "";
+                HtmlNodeCollection nameAndAuthor = null;
+                if (!string.IsNullOrEmpty(strong))
+                {
+                    host = detail.SelectSingleNode("div/img").GetAttributeValue("alt", "unknown").ToLower();
+                    nameAndAuthor = detail.SelectNodes("div/a[@href]");
+                }
+                else
+                {
+                    host = detail.SelectSingleNode("h6/small").InnerText;
+                    nameAndAuthor = detail.SelectNodes("h6/a[@href]");
+                }
+
                 string title = "";
                 string author = "";
                 string artlink = "";
-                string thumbnail = "https://ascii2d.net" + imageBox.GetAttributeValue("src", "");
 
                 if (nameAndAuthor == null) continue;
 
@@ -52,7 +76,7 @@ namespace Discord_Driver_Bot.HttpClients.Ascii2D
                     if (i == 0)
                     {
                         artlink = nameAndAuthor[i].Attributes["href"].Value;
-                        title = nameAndAuthor[i].InnerText;
+                        title = $"{strong}{nameAndAuthor[i].InnerText}";
                     }
                     else if (i == 1)
                     {

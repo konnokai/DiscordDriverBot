@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using System.Net.Http;
 
 namespace Discord_Driver_Bot.Interaction.Gallery
 {
@@ -16,12 +17,14 @@ namespace Discord_Driver_Bot.Interaction.Gallery
     {
         private Ascii2DClient _ascii2DClient;
         private SauceNAOClient _sauceNAOClient;
+        private IHttpClientFactory _httpClientFactory;
         private string[] AllowedFileTypes { get; } = new[] { ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".svg", ".webp" };
 
-        public Gallery(Ascii2DClient ascii2DClient, SauceNAOClient sauceNAOClient)
+        public Gallery(Ascii2DClient ascii2DClient, SauceNAOClient sauceNAOClient, IHttpClientFactory httpClientFactory)
         {
             _ascii2DClient = ascii2DClient;
             _sauceNAOClient = sauceNAOClient;
+            _httpClientFactory = httpClientFactory;
         }
 
         public enum SearchHost
@@ -182,6 +185,25 @@ namespace Discord_Driver_Bot.Interaction.Gallery
 
             try
             {
+                using var client = _httpClientFactory.CreateClient();
+                var req = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+                req.EnsureSuccessStatusCode();
+
+                if (req.Content.Headers.ContentLength > 5242880)
+                {
+                    await Context.Interaction.SendErrorAsync("圖檔不可大於5MB", true);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
+                Log.Error(url);
+                Log.Error(ex.ToString());
+            }
+
+            try
+            {
                 var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
                 if (ascii2dResult != null)
                 {
@@ -190,7 +212,10 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                         List<string> description = new List<string>();
                         await foreach (var item in ascii2dResult)
                         {
-                            description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
+                            if (item.Host == "dlsite")
+                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
+                            else
+                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
                         }
 
                         EmbedBuilder embedBuilder = new EmbedBuilder()

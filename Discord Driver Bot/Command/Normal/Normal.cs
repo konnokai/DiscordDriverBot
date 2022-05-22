@@ -6,23 +6,26 @@ using Discord_Driver_Bot.HttpClients.SauceNAO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Command.Normal
 {
     public class Normal : TopLevelModule
     {
-        private readonly DiscordSocketClient _client;
-        private readonly SauceNAOClient _sauceNAOClient;
-        private readonly Ascii2DClient _ascii2DClient;
+        private DiscordSocketClient _client;
+        private SauceNAOClient _sauceNAOClient;
+        private Ascii2DClient _ascii2DClient;
+        private IHttpClientFactory _httpClientFactory;
         private string[] AllowedFileTypes { get; } = new[] { ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".svg", ".webp" };
 
         public Normal(DiscordSocketClient client,
-            SauceNAOClient sauceNAOClient, Ascii2DClient ascii2DClient)
+            SauceNAOClient sauceNAOClient, Ascii2DClient ascii2DClient, IHttpClientFactory httpClientFactory)
         {
             _client = client;
             _sauceNAOClient = sauceNAOClient;
             _ascii2DClient = ascii2DClient;
+            _httpClientFactory = httpClientFactory;
         }
 
         [Command("AutoGodSay")]
@@ -274,35 +277,58 @@ namespace Discord_Driver_Bot.Command.Normal
         {
             try
             {
-                var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
-                if (ascii2dResult != null)
+                try
                 {
-                    try
+                    using var client = _httpClientFactory.CreateClient();
+                    var req = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+                    req.EnsureSuccessStatusCode();
+
+                    if (req.Content.Headers.ContentLength > 5242880)
                     {
-                        List<string> description = new List<string>();
-                        await foreach (var item in ascii2dResult)
-                        {
-                            description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
-                        }
-
-                        EmbedBuilder embedBuilder = new EmbedBuilder()
-                            .WithOkColor()
-                            .WithTitle(ascii2dResult.FirstAsync().Result.Title)
-                            .WithDescription(string.Join('\n', description))
-                            .WithFooter("Ascii2D");
-                        embedBuilder.WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail);
-
-                        await ReplyAsync(null, false, embedBuilder.Build());
+                        await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，圖檔不可大於5MB");
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        await Context.Channel.SendErrorAsync($"Ascii2D搜尋失敗");
-                        Log.Error(ex.ToString());
+                        var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
+                        if (ascii2dResult != null)
+                        {
+                            try
+                            {
+                                List<string> description = new List<string>();
+                                await foreach (var item in ascii2dResult)
+                                {
+                                    if (item.Host == "dlsite")
+                                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
+                                    else
+                                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
+                                }
+
+                                EmbedBuilder embedBuilder = new EmbedBuilder()
+                                    .WithOkColor()
+                                    .WithTitle(ascii2dResult.FirstAsync().Result.Title)
+                                    .WithDescription(string.Join('\n', description))
+                                    .WithFooter("Ascii2D");
+                                embedBuilder.WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail);
+
+                                await ReplyAsync(null, false, embedBuilder.Build());
+                            }
+                            catch (Exception ex)
+                            {
+                                await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，未知的錯誤");
+                                Log.Error(ex.ToString());
+                            }
+                        }
+                        else
+                        {
+                            await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，未知的錯誤");
+                        }
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    await Context.Channel.SendErrorAsync($"Ascii2D搜尋失敗");
+                    await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，未知的錯誤");
+                    Log.Error(url);
+                    Log.Error(ex.ToString());
                 }
 
                 var sauceResult = await _sauceNAOClient.GetSauceAsync(url).ConfigureAwait(false);

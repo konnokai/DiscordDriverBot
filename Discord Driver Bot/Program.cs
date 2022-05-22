@@ -159,7 +159,7 @@ namespace Discord_Driver_Bot
         {
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
-                LogLevel = LogSeverity.Warning,
+                LogLevel = LogSeverity.Error,
                 ConnectionTimeout = int.MaxValue,
                 MessageCacheSize = 50,
             }); ;
@@ -180,6 +180,7 @@ namespace Discord_Driver_Bot
             interactionServices.AddHttpClient<Ascii2DClient>();
             interactionServices.AddHttpClient<DiscordWebhookClient>();
             interactionServices.AddHttpClient<SauceNAOClient>();
+            interactionServices.AddHttpClient();
 
             interactionServices.LoadInteractionFrom(Assembly.GetAssembly(typeof(InteractionHandler)));
             iService = interactionServices.BuildServiceProvider();
@@ -200,6 +201,7 @@ namespace Discord_Driver_Bot
             commandServices.AddHttpClient<Ascii2DClient>();
             commandServices.AddHttpClient<DiscordWebhookClient>();
             commandServices.AddHttpClient<SauceNAOClient>();
+            commandServices.AddHttpClient();
 
             commandServices.LoadCommandFrom(Assembly.GetAssembly(typeof(CommandHandler)));
             IServiceProvider service = commandServices.BuildServiceProvider();
@@ -263,6 +265,8 @@ namespace Discord_Driver_Bot
                 iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.Owner.Username}({guild.Owner.Mention})");
                 return Task.CompletedTask;
             };
+
+            _client.Log += Log.LogMsg;
             #endregion
 
             #region Login

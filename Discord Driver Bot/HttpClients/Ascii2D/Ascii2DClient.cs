@@ -47,28 +47,48 @@ namespace Discord_Driver_Bot.HttpClients.Ascii2D
                 var strong = "";
                 try
                 {
-                    strong = detail.SelectSingleNode("strong").InnerText;
-                    strong += ": ";
+                    var strongNode = detail.SelectSingleNode("strong");
+                    if (strongNode != null)                    
+                        strong = strongNode.InnerText + ": ";                    
                 }
                 catch (System.Exception) { }
 
-                string host = "";
-                HtmlNodeCollection nameAndAuthor = null;
-                if (!string.IsNullOrEmpty(strong))
-                {
-                    host = detail.SelectSingleNode("div/img").GetAttributeValue("alt", "unknown").ToLower();
-                    nameAndAuthor = detail.SelectNodes("div/a[@href]");
-                }
-                else
-                {
-                    host = detail.SelectSingleNode("h6/small").InnerText;
-                    nameAndAuthor = detail.SelectNodes("h6/a[@href]");
-                }
-
+                string host = "Unknown";
                 string title = "";
                 string author = "";
                 string artlink = "";
 
+                HtmlNodeCollection nameAndAuthor = null;
+                if (!string.IsNullOrEmpty(strong))
+                {
+                    nameAndAuthor = detail.SelectNodes("div/a[@href]");
+
+                    var extNode = detail.SelectSingleNode("div[@class='external']");
+                    if (extNode != null)
+                    {
+                        title = strong + extNode.FirstChild.InnerText.Trim('\n');
+
+                        if (nameAndAuthor == null) continue;
+
+                        artlink = nameAndAuthor[0].Attributes["href"].Value;
+                        host = $"{nameAndAuthor[0].InnerText}";
+
+                        yield return new Result() { Hash = hash, URL = artlink, Author = author, Title = title, Host = host, Thumbnail = thumbnail };
+                        continue;
+                    }
+                    else
+                    {
+                        var imgNode = detail.SelectSingleNode("div/img");
+                        if (imgNode != null)
+                            host = imgNode.GetAttributeValue("alt", "unknown").ToLower();
+                    }
+                }
+                else
+                {
+                    nameAndAuthor = detail.SelectNodes("h6/a[@href]");
+                    host = detail.SelectSingleNode("h6/small").InnerText;
+                }
+                
                 if (nameAndAuthor == null) continue;
 
                 for (int i = 0; i < nameAndAuthor.Count; i++)

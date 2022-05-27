@@ -15,15 +15,6 @@ namespace Discord_Driver_Bot.Gallery.Host
 
             string[] urlSplit = url.Split(new char[] { '?' })[0].Trim('/').Split(new char[] { '/' });
             string ID = urlSplit[2];
-            if (!Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}", ID)))
-            {
-                if (interactionContext == null)
-                    await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
-                else
-                    await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
-                return;
-            }
-
             try
             {
                 string thumbnailURL, title, japanTitle, bookName;
@@ -41,6 +32,15 @@ namespace Discord_Driver_Bot.Gallery.Host
                 {
                     dicTag = new Dictionary<string, List<string>>();
                     HttpClients.NHentai.Gallery gallery = await Program.NHentaiAPIClient.GetGalleryAsync(ID);
+
+                    if (gallery == null)
+                    {
+                        if (interactionContext == null)
+                            await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                        else
+                            await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                        return;
+                    }
 
                     thumbnailURL = $"https://t.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
                     title = gallery.Title.English;

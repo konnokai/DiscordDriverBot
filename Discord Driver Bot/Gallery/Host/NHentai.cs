@@ -98,19 +98,34 @@ namespace Discord_Driver_Bot.Gallery.Host
             {
 #if RELEASE
                 if (ex.Message.Contains("50013"))
+                {
                     await user.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言權限\n請向管理員要求提供Bot權限")
                         .Build());
+                }
+                else if (ex.Message.Contains("503"))
+                {
+                    var embed = new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithDescription($"NHentai API伺服器無法使用，如需隱藏此錯誤請在網址前新增`#`")
+                        .Build();
+                    if (interactionContext == null)
+                        await messageChannel.SendMessageAsync(embed: embed);
+                    else
+                        await interactionContext.Interaction.FollowupAsync(embed: embed);
+                }
                 else
+                {
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
                         .WithUrl($"https://{url}")
                         .WithDescription(ex.ToString())
                         .Build());
+                    Log.Error(ex.ToString());
+                }
 #endif
-                Log.Error(ex.ToString());
             }
         }
     }

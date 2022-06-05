@@ -82,7 +82,7 @@ namespace Discord_Driver_Bot.Command.Normal
         }
 
         [Command("GodSay")]
-        [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nn, w, e-, ex, h (限NSFW頻道使用)\n例:\n!!GodSay n 260600\n!!GodSay ex 1496326/aa30f4bfae")]
+        [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nw, e-, ex, h (限NSFW頻道使用)\n例:\n!!GodSay w 40600\n!!GodSay ex 1496326/aa30f4bfae")]
         [Alias("GS")]
         public async Task GodSayAsync([Summary("網站")]string host = null, [Summary("神的語言")]string godSay = null)
         {
@@ -93,9 +93,9 @@ namespace Discord_Driver_Bot.Command.Normal
 
             switch (host.ToLower())
             {
-                case "n":
-                    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                    break;
+                //case "n":
+                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
+                //    break;
                 case "w":
                     url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
                     break;

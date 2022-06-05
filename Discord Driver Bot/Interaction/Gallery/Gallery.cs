@@ -36,9 +36,9 @@ namespace Discord_Driver_Bot.Interaction.Gallery
         [SlashCommand("auto-god-say", "依據輸入的字數來判斷網站並顯示神所說的句子")]
         [CommandSummary("依據輸入的字數來判斷網站並顯示神所說的句子\n\n" +
            "字數自動判斷的網站如下\n" +
-           "5為Wnacg，6為NHentai，7為Hitomi\n" +
+           "5為Wnacg，7為Hitomi\n" +
            "8為Pixiv，18跟19為ExHentai")]
-        [CommandExample("260600", "95741451", "1496326/aa30f4bfae")]
+        [CommandExample("52600", "95741451", "1496326/aa30f4bfae")]
         public async Task AutoGodSayAsync([Summary("神的語言")] string godSay)
         {
             await Context.Interaction.DeferAsync();
@@ -49,9 +49,9 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                 case 5:
                     url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
                     break;
-                case 6:
-                    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                    break;
+                //case 6:
+                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
+                //    break;
                 case 7:
                     url = string.Format("https://hitomi.la/galleries/{0}.html", godSay);
                     break;
@@ -85,8 +85,8 @@ namespace Discord_Driver_Bot.Interaction.Gallery
         [SlashCommand("god-say", "顯示神所說的文字")]
         [CommandSummary("顯示神所說的文字\n" +
             "Pixiv (普通頻道可用)\n" +
-            "NHentai, Wancg, ExHentai, Hitomi (限NSFW頻道使用)\n")]
-        [CommandExample("n 260600", "ex 1496326/aa30f4bfae")]
+            "Wancg, ExHentai, Hitomi (限NSFW頻道使用)\n")]
+        [CommandExample("w 56600", "ex 1496326/aa30f4bfae")]
         public async Task GodSayAsync([Summary("網站")] Host host, [Summary("神的語言")] string godSay)
         {
             await Context.Interaction.DeferAsync();
@@ -97,9 +97,9 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                 case Host.ExHentai:
                     url = string.Format("https://exhentai.org/g/{0}", godSay);
                     break;
-                case Host.NHentai:
-                    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                    break;
+                //case Host.NHentai:
+                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
+                //    break;
                 case Host.Wancg:
                     url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
                     break;

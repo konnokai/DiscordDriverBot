@@ -42,7 +42,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                         return;
                     }
 
-                    thumbnailURL = $"https://t.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
+                    thumbnailURL = $"https://t3.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
                     title = gallery.Title.English;
                     japanTitle = gallery.Title.Japanese;
                     bookName = (gallery.Title.Pretty ?? gallery.Title.Japanese ?? gallery.Title.English).FormatBookName();

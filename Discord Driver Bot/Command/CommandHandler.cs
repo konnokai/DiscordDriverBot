@@ -92,9 +92,9 @@ namespace Discord_Driver_Bot.Command
                         case 0:
                             rndHost = "n";
 
-                            do
-                            { rndId = random.Next(1, 350000).ToString(); }
-                            while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
+                            //do
+                            { rndId = random.Next(1, 450000).ToString(); }
+                            //while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
 
                             break;
                         case 1:

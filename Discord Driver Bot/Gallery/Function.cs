@@ -62,12 +62,12 @@ namespace Discord_Driver_Bot.Gallery
                         await Host.EHentai.EHentai.GetDataAsync(url, guild, messageChannel, user, interactionContext);
                         return true;
                     }
-                case BookHost.NHentai:
-                    {
-                        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
-                        await Host.NHentai.GetDataAsync(url, guild, messageChannel, user, interactionContext);
-                        return true;
-                    }
+                //case BookHost.NHentai:
+                //    {
+                //        if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;
+                //        await Host.NHentai.GetDataAsync(url, guild, messageChannel, user, interactionContext);
+                //        return true;
+                //    }
                 case BookHost.Hitomi:
                     {
                         if (!IsNSFW && user.Id != Program.ApplicatonOwner.Id) return false;

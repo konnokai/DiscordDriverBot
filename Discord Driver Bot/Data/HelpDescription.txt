@@ -2,6 +2,7 @@
 
 目前可輸入P網、熊貓(e-或ex都可)、Hitomi、Wancg跟NHentai網址
 Bot會自己去取得資料後輸出到Discord上
+(NHentai因最近啟用了CloudFlare的DDOS攻擊保護，小幫手暫時無法略過，故先關閉處理)
 
 或是幫你從Ascii2d&SauceNao搜尋圖片
 

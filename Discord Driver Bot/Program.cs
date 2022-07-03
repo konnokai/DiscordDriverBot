@@ -262,7 +262,7 @@ namespace Discord_Driver_Bot
 
             _client.JoinedGuild += (guild) =>
             {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.Owner.Username}({guild.Owner.Mention})");
+                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.OwnerId}");
                 return Task.CompletedTask;
             };
 

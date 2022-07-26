@@ -16,7 +16,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
     {
         static HttpClient HttpClient = new HttpClient();
 
-        static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,8})");
+        static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,9})");
 
         public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user,IInteractionContext interactionContext)
         {

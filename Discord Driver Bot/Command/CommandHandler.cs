@@ -82,49 +82,49 @@ namespace Discord_Driver_Bot.Command
                     return;
                 }
 
-                if (message.MentionedUsers.Any((x) => x.Id == Program._client.CurrentUser.Id) && message.MentionedUsers.Count == 1)
-                {
-                    await message.Channel.TriggerTypingAsync();
-                    Random random = new Random(); string rndHost = "", rndId = "";
+                //if (message.MentionedUsers.Any((x) => x.Id == Program._client.CurrentUser.Id) && message.MentionedUsers.Count == 1)
+                //{
+                //    await message.Channel.TriggerTypingAsync();
+                //    Random random = new Random(); string rndHost = "", rndId = "";
 
-                    switch (random.Next(0, 3))
-                    {
-                        case 0:
-                            rndHost = "n";
+                //    switch (random.Next(0, 3))
+                //    {
+                //        case 0:
+                //            rndHost = "n";
 
-                            //do
-                            { rndId = random.Next(1, 450000).ToString(); }
-                            //while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
+                //            //do
+                //            { rndId = random.Next(1, 450000).ToString(); }
+                //            //while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
 
-                            break;
-                        case 1:
-                            rndHost = "w";
+                //            break;
+                //        case 1:
+                //            rndHost = "w";
 
-                            do
-                            { rndId = random.Next(1, 100000).ToString(); }
-                            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", rndId)));
+                //            do
+                //            { rndId = random.Next(1, 100000).ToString(); }
+                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", rndId)));
 
-                            break;
-                        case 2:
-                            rndHost = "p";
+                //            break;
+                //        case 2:
+                //            rndHost = "p";
 
-                            do
-                            { rndId = random.Next(80000000, 100000000).ToString(); }
-                            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.pixiv.net/artworks/{0}", rndId)));
+                //            do
+                //            { rndId = random.Next(80000000, 100000000).ToString(); }
+                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.pixiv.net/artworks/{0}", rndId)));
 
-                            break;
-                        case 3:
-                            rndHost = "h";
+                //            break;
+                //        case 3:
+                //            rndHost = "h";
 
-                            do
-                            { rndId = random.Next(800000, 1500000).ToString(); }
-                            while (!Gallery.Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}.html", rndId)));
+                //            do
+                //            { rndId = random.Next(800000, 1500000).ToString(); }
+                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}.html", rndId)));
 
-                            break;
-                    }
+                //            break;
+                //    }
 
-                    await message.Channel.SendMessageAsync(rndHost + " " + rndId);
-                }
+                //    await message.Channel.SendMessageAsync(rndHost + " " + rndId);
+                //}
 
                 #region 舞池處理
                 if (guild.Id == 463657254105645056 && judgeList.Contains(channel.CategoryId.Value) &&

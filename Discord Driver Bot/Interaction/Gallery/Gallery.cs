@@ -56,6 +56,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                     url = string.Format("https://hitomi.la/galleries/{0}.html", godSay);
                     break;
                 case 8:
+                case 9:
                     url = string.Format("https://www.pixiv.net/artworks/{0}", godSay);
                     break;
                 case 18:

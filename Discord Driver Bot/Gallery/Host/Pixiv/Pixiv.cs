@@ -59,7 +59,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
                 title = illust.Title;
                 description = illust.Description;
                 description = converter.Convert(illust.Description);
-                thumbnailURL = illust.Urls.Thumb.Replace("pximg.net", "pixiv.cat");
+                thumbnailURL = illust.Urls.Thumb.Replace("i.pximg.net", "pixiv.konnokai.workers.dev");
                 tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
 
                 new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, thumbnailURL, tags).InsertNewData();

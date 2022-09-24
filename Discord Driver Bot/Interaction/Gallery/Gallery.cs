@@ -1,17 +1,18 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Discord_Driver_Bot.Interaction.Attribute;
 using Discord_Driver_Bot.HttpClients.Ascii2D;
 using Discord_Driver_Bot.HttpClients.SauceNAO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+using Discord_Driver_Bot.Interaction.Attribute;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Interaction.Gallery
 {
+    [EnabledInDm(false)]
     [Group("gallery", "本本用")]
     public class Gallery : TopLevelModule
     {
@@ -292,6 +293,37 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             {
                 await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
                 Log.Error(url);
+                Log.Error(ex.ToString());
+            }
+        }
+
+        [MessageCommand("解析訊息內的網址")]
+        public async Task ParseGalleryUrlAsync(IMessage message)
+        {
+            string content = message.Content;
+            if (string.IsNullOrEmpty(content))
+            {
+                await Context.Interaction.SendErrorAsync("不存在可解析的文字");
+                return;
+            }
+
+            await DeferAsync();
+
+            try
+            {
+                foreach (string item in content.Split(new char[] { '\n' }))
+                {
+                    if (await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(item, Context.Guild, message.Channel, message.Author, Context))
+                    {
+                        Log.FormatColorWrite($"[{Context.Guild.Name}/{Context.Channel.Name}]{Context.User.Username}: {item}", ConsoleColor.Gray);
+                        SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await Context.Interaction.SendErrorAsync("解析失敗，未知的錯誤", true);
+                Log.Error(content);
                 Log.Error(ex.ToString());
             }
         }

@@ -16,7 +16,7 @@ namespace Discord_Driver_Bot.HttpClients.NHentai
         {
             Client = new HttpClient();
         }
-        
+
         public async Task<Gallery> GetGalleryAsync(string id)
         {
             try

@@ -38,7 +38,7 @@ namespace Discord_Driver_Bot.Command
             var guild = message.GetGuild();
 
             int argPos = 0;
-            if (message.HasStringPrefix("!!", ref argPos))
+            if (message.HasStringPrefix($"<@{Program._client.CurrentUser.Id}>", ref argPos) || message.HasStringPrefix($"<@!{Program._client.CurrentUser.Id}>", ref argPos))
             {
                 var context = new SocketCommandContext(_client, message);
 
@@ -63,6 +63,10 @@ namespace Discord_Driver_Bot.Command
                         Log.Info($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message}");
                     }
                 }
+                else
+                {
+                    await HandelMessageAsync(message);
+                }
             }
             else
             {
@@ -72,140 +76,114 @@ namespace Discord_Driver_Bot.Command
                     await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author);
                 }
 #elif RELEASE
-                string content = message.Content;
-                ITextChannel channel = message.Channel as ITextChannel;
-                IGuildUser guildUser = message.Author as IGuildUser;
+                await HandelMessageAsync(message);
+                //string content = message.Content;
+                //ITextChannel channel = message.Channel as ITextChannel;
+                //IGuildUser guildUser = message.Author as IGuildUser;
 
-                if (content == "<:notify:314000626608504832>")
-                {
-                    await channel.SendMessageAsync("<:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832>");
-                    return;
-                }
-
-                //if (message.MentionedUsers.Any((x) => x.Id == Program._client.CurrentUser.Id) && message.MentionedUsers.Count == 1)
+                //if (content == "<:notify:314000626608504832>")
                 //{
-                //    await message.Channel.TriggerTypingAsync();
-                //    Random random = new Random(); string rndHost = "", rndId = "";
-
-                //    switch (random.Next(0, 3))
-                //    {
-                //        case 0:
-                //            rndHost = "n";
-
-                //            //do
-                //            { rndId = random.Next(1, 450000).ToString(); }
-                //            //while (!Gallery.Function.GetIDIsExist(string.Format("https://nhentai.net/g/{0}/", rndId)));
-
-                //            break;
-                //        case 1:
-                //            rndHost = "w";
-
-                //            do
-                //            { rndId = random.Next(1, 100000).ToString(); }
-                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", rndId)));
-
-                //            break;
-                //        case 2:
-                //            rndHost = "p";
-
-                //            do
-                //            { rndId = random.Next(80000000, 100000000).ToString(); }
-                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://www.pixiv.net/artworks/{0}", rndId)));
-
-                //            break;
-                //        case 3:
-                //            rndHost = "h";
-
-                //            do
-                //            { rndId = random.Next(800000, 1500000).ToString(); }
-                //            while (!Gallery.Function.GetIDIsExist(string.Format("https://hitomi.la/galleries/{0}.html", rndId)));
-
-                //            break;
-                //    }
-
-                //    await message.Channel.SendMessageAsync(rndHost + " " + rndId);
+                //    await channel.SendMessageAsync("<:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832><:notify:314000626608504832>");
+                //    return;
                 //}
 
                 #region 舞池處理
-                if (guild.Id == 463657254105645056 && judgeList.Contains(channel.CategoryId.Value) &&
-                    guildUser.Id != guildUser.Guild.OwnerId && !guildUser.RoleIds.Any(x => x == 464047563839111168 || x == 544581212296052756))
-                {
-                    SocketTextChannel textChannel = await channel.Guild.GetChannelAsync(463657254105645058) as SocketTextChannel;
-                    if (channel.Name.Contains("貼圖"))
-                    {
-                        if (message.Content == string.Empty) return;
+                //if (guild.Id == 463657254105645056 && judgeList.Contains(channel.CategoryId.Value) &&
+                //    guildUser.Id != guildUser.Guild.OwnerId && !guildUser.RoleIds.Any(x => x == 464047563839111168 || x == 544581212296052756))
+                //{
+                //    SocketTextChannel textChannel = await channel.Guild.GetChannelAsync(463657254105645058) as SocketTextChannel;
+                //    if (channel.Name.Contains("貼圖"))
+                //    {
+                //        if (message.Content == string.Empty) return;
 
-                        foreach (string item in content.Split(new char[] { '\n' }))
-                        {
-                            try
-                            {
-                                string url = Gallery.Function.FilterUrl(item);
-                                Gallery.Function.BookHost host = Gallery.Function.CheckBookHost(url);
-                                if (host != Gallery.Function.BookHost.None && host != Gallery.Function.BookHost.Pixiv)
-                                {
-                                    await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池貼本 ({1})", guildUser.Mention, channel.Mention));
-                                    Log.Error(string.Format("{0} 在舞池貼本 ({1}): {2}", guildUser.Username, channel.Name, content));
-                                    return;
-                                }
-                                else if (!url.StartsWith("http") && message.Attachments.Count == 0)
-                                {
-                                    await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                                    Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
-                                    return;
-                                }
-                            }
-                            catch (Exception) { }
-                        }
-                    }
-                    else if (channel.CategoryId == 499273835036803082 || channel.CategoryId == 599685047037198336)
-                    {
-                        if (content != string.Empty)
-                        {
-                            bool FUCKYOU = true;
-                            foreach (string item in content.Split(new char[] { '\n' }))
-                                if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
+                //        foreach (string item in content.Split(new char[] { '\n' }))
+                //        {
+                //            try
+                //            {
+                //                string url = Gallery.Function.FilterUrl(item);
+                //                Gallery.Function.BookHost host = Gallery.Function.CheckBookHost(url);
+                //                if (host != Gallery.Function.BookHost.None && host != Gallery.Function.BookHost.Pixiv)
+                //                {
+                //                    await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池貼本 ({1})", guildUser.Mention, channel.Mention));
+                //                    Log.Error(string.Format("{0} 在舞池貼本 ({1}): {2}", guildUser.Username, channel.Name, content));
+                //                    return;
+                //                }
+                //                else if (!url.StartsWith("http") && message.Attachments.Count == 0)
+                //                {
+                //                    await textChannel.SendMessageAsync(string.Format("{0} 不要在貼圖舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
+                //                    Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
+                //                    return;
+                //                }
+                //            }
+                //            catch (Exception) { }
+                //        }
+                //    }
+                //    else if (channel.CategoryId == 499273835036803082 || channel.CategoryId == 599685047037198336)
+                //    {
+                //        if (content != string.Empty)
+                //        {
+                //            bool FUCKYOU = true;
+                //            foreach (string item in content.Split(new char[] { '\n' }))
+                //                if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
 
-                            if (FUCKYOU)
-                            {
-                                await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                                Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
-                                return;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (content == string.Empty)
-                        {
-                            await textChannel.SendMessageAsync(string.Format("{0} 不要在該舞池貼圖 ({1})", guildUser.Mention, channel.Mention));
-                            return;
-                        }
+                //            if (FUCKYOU)
+                //            {
+                //                await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
+                //                Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
+                //                return;
+                //            }
+                //        }
+                //    }
+                //    else
+                //    {
+                //        if (content == string.Empty)
+                //        {
+                //            await textChannel.SendMessageAsync(string.Format("{0} 不要在該舞池貼圖 ({1})", guildUser.Mention, channel.Mention));
+                //            return;
+                //        }
 
-                        bool FUCKYOU = true;
-                        foreach (string item in content.Split(new char[] { '\n' }))
-                            if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
+                //        bool FUCKYOU = true;
+                //        foreach (string item in content.Split(new char[] { '\n' }))
+                //            if (Gallery.Function.FilterUrl(item).StartsWith("http")) FUCKYOU = false;
 
-                        if (FUCKYOU)
-                        {
-                            await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
-                            Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
-                            return;
-                        }
-                    }
-                }
+                //        if (FUCKYOU)
+                //        {
+                //            await textChannel.SendMessageAsync(string.Format("{0} 不要在舞池聊天 ({1})\n說了: {2}", guildUser.Mention, channel.Mention, content));
+                //            Log.Error(string.Format("{0} 在舞池聊天 ({1})\n說了: {2}", guildUser.Username, channel.Name, content));
+                //            return;
+                //        }
+                //    }
+                //}
                 #endregion
 
-                if (content.Contains("#http") || content.Contains("<http") || content.Contains("||http")) return;
+                //if (content.Contains("#http") || content.Contains("<http") || content.Contains("||http")) return;
 
-                foreach (string item in content.Split(new char[] { '\n' }))
-                {
-                    if (await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author))
-                    {
-                        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
-                        SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
-                    }
-                }
+                //foreach (string item in content.Split(new char[] { '\n' }))
+                //{
+                //    if (await Gallery.Function.ShowGalleryInfoAsync(item, guild, message.Channel, message.Author))
+                //    {
+                //        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
+                //        SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
+                //    }
+                //}
 #endif
+            }
+        }
+
+        private async Task HandelMessageAsync(SocketUserMessage message)
+        {
+            var guild = message.GetGuild();
+            string content = message.Content;
+            ITextChannel channel = message.Channel as ITextChannel;
+            IGuildUser guildUser = message.Author as IGuildUser;
+
+            foreach (string item in content.Split(new char[] { '\n' }))
+            {
+                if (await Gallery.Function.ShowGalleryInfoAsync(item, guild, message.Channel, message.Author))
+                {
+                    Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
+                    SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
+                }
             }
         }
     }

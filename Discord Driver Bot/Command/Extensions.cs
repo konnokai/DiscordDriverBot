@@ -278,25 +278,7 @@ namespace Discord_Driver_Bot.Command
             }
         }
 
-        public static string FormatEmoteName(this GuildEmote emote)
-        {
-            return (emote.Animated ? "a:" : ":") + emote.Name + ":";
-        }
-
-        public static int FilterID(this string url)
-        {
-            int result = 0;
-            try
-            {
-                string tempUrl = "";
-                foreach (char item in url) if (item >= 48 && item <= 57) tempUrl += item;
-                result = int.Parse(tempUrl);
-            }
-            catch (Exception) { }
-            return result;
-        }
-
-        public static IGuild GetGuild(this SocketMessage channel)
+        public static IGuild GetGuild(this IMessage channel)
         {
             return Program._client.Guilds.FirstOrDefault((x) => x.TextChannels.Any((x2) => x2.Id == channel.Channel.Id));
         }

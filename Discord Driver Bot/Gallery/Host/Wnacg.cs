@@ -134,7 +134,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                 if (ex.Message.Contains("50013"))
                     await user.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
-                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言權限\n請向管理員要求提供Bot權限")
+                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言&嵌入連結權限\n請向管理員要求提供Bot權限")
                         .Build());
                 else
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()

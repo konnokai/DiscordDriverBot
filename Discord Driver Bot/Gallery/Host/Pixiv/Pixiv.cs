@@ -17,7 +17,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 
         static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,9})");
 
-        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user,IInteractionContext interactionContext)
+        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
             var reg = regex.Match(url);
             if (!reg.Success) return;
@@ -52,7 +52,10 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 
                 if (!result.Status)
                 {
-                    return;
+                    if (string.IsNullOrEmpty(result.Error))
+                        return;
+                    else
+                        throw new Exception(result.Error);
                 }
 
                 Body illust = result.Reslut.Body;
@@ -145,6 +148,10 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
             try
             {
                 result = await HttpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
+            }
+            catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return (false, null, "找不到此Id的資料，可能已被刪除");
             }
             catch (Exception ex)
             {

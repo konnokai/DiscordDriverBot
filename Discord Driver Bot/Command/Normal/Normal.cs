@@ -84,7 +84,7 @@ namespace Discord_Driver_Bot.Command.Normal
         [Command("GodSay")]
         [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nw, e-, ex, h (限NSFW頻道使用)\n例:\n!!GodSay w 40600\n!!GodSay ex 1496326/aa30f4bfae")]
         [Alias("GS")]
-        public async Task GodSayAsync([Summary("網站")]string host = null, [Summary("神的語言")]string godSay = null)
+        public async Task GodSayAsync([Summary("網站")] string host = null, [Summary("神的語言")] string godSay = null)
         {
             if (host == null) { await ReplyAsync(Context.User.Mention + " 網站錯誤"); return; }
             if (godSay == null) { await ReplyAsync(Context.User.Mention + " 沒有神的語言"); return; }
@@ -114,9 +114,17 @@ namespace Discord_Driver_Bot.Command.Normal
                     return;
             }
 
-            if (url != "" && await Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User))
+            try
             {
-                SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                if (url != "" && await Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User))
+                {
+                    SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                await Context.Channel.SendErrorAsync(ex.Message);
             }
         }
 

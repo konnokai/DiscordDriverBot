@@ -44,7 +44,6 @@ namespace Discord_Driver_Bot.Interaction.Gallery
         {
             await Context.Interaction.DeferAsync();
             string url;
-
             switch (godSay.Length)
             {
                 case 5:
@@ -69,9 +68,16 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                     return;
             }
 
-            if (url != "" && await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
+            try
             {
-                SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                if (url != "" && await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
+                {
+                    SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Context.Interaction.SendErrorAsync(ex.Message, true, true);
             }
         }
 
@@ -113,9 +119,16 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                     break;
             }
 
-            if (url != "" && await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
+            try
             {
-                SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                if (url != "" && await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
+                {
+                    SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Context.Interaction.SendErrorAsync(ex.Message, true);
             }
         }
 

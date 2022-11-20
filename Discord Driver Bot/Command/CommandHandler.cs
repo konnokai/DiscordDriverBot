@@ -65,7 +65,15 @@ namespace Discord_Driver_Bot.Command
                 }
                 else
                 {
-                    await HandelMessageAsync(message);
+                    try
+                    {
+                        await HandelMessageAsync(message);
+
+                    }
+                    catch (Exception ex)
+                    {
+                        await message.Channel.SendErrorAsync(ex.Message);
+                    }
                 }
             }
             else
@@ -76,7 +84,15 @@ namespace Discord_Driver_Bot.Command
                     await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author);
                 }
 #elif RELEASE
-                await HandelMessageAsync(message);
+                try
+                {
+                    await HandelMessageAsync(message);
+
+                }
+                catch (Exception ex)
+                {
+                    await message.Channel.SendErrorAsync(ex.Message);
+                }
                 //string content = message.Content;
                 //ITextChannel channel = message.Channel as ITextChannel;
                 //IGuildUser guildUser = message.Author as IGuildUser;
@@ -179,10 +195,17 @@ namespace Discord_Driver_Bot.Command
 
             foreach (string item in content.Split(new char[] { '\n' }))
             {
-                if (await Gallery.Function.ShowGalleryInfoAsync(item, guild, message.Channel, message.Author))
+                try
                 {
-                    Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
-                    SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
+                    if (await Gallery.Function.ShowGalleryInfoAsync(item, guild, message.Channel, message.Author))
+                    {
+                        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
+                        SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
                 }
             }
         }

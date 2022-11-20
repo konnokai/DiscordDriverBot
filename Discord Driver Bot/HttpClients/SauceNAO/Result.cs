@@ -49,7 +49,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
         /// <value>
         /// The sources.
         /// </value>
-        public IList<string> Sources { get; set; }
+        public string Sources { get; set; }
         /// <summary>
         /// Gets or sets the raw data of the artwork.
         /// </summary>

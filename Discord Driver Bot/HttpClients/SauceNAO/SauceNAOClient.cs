@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -150,7 +151,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
                     Thumbnail = result["header"]["thumbnail"].ToString(),
                     Author = _getAuthor(result["data"]),
                     Title = _getTitle(result["data"]),
-                    Sources = result["data"]["ext_urls"]?.ToObject<List<string>>(),
+                    Sources = result["data"]["ext_urls"]?.ToObject<List<string>>().First().Replace("https://www.pixiv.net/member_illust.php?mode=medium&illust_id=", "https://www.pixiv.net/artworks/"),
                     RawData = result
                 }));
             }
@@ -185,7 +186,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
             switch (result.Index)
             {
                 case SiteIndex.DoujinshiMangaLexicon:
-                    match = await WebRequest(result.Sources[0], @"<td>.*?<b>Adult:<\/b><\/td><td>(.*)<\/td>");
+                    match = await WebRequest(result.Sources, @"<td>.*?<b>Adult:<\/b><\/td><td>(.*)<\/td>");
                     if (match.Success)
                         result.Rating = match.Groups[1].Value == "Yes" ? SourceRating.Nsfw : SourceRating.Safe;
                     else result.Rating = SourceRating.Unknown;
@@ -193,7 +194,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
 
                 case SiteIndex.Pixiv:
                 case SiteIndex.PixivArchive:
-                    string context = await (await client.GetAsync(result.Sources[0])).Content.ReadAsStringAsync();
+                    string context = await (await client.GetAsync(result.Sources)).Content.ReadAsStringAsync();
                     result.Rating = (context.Contains(@"""tag"":""R-18""") ? SourceRating.Nsfw : SourceRating.Safe);
                     break;
 
@@ -201,20 +202,20 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
                 case SiteIndex.Danbooru:
                 case SiteIndex.SankakuChannel:
                 case SiteIndex.IdolComplex:
-                    match = await WebRequest(result.Sources[0], @"<li>Rating: (.*?)<\/li>");
+                    match = await WebRequest(result.Sources, @"<li>Rating: (.*?)<\/li>");
                     if (!match.Success) result.Rating = SourceRating.Unknown;
                     else result.Rating = (SourceRating)Array.IndexOf(new[] { null, "Safe", "Questionable", "Explicit" }, match.Groups[1].Value);
                     break;
 
                 case SiteIndex.Yandere:
                 case SiteIndex.Konachan:
-                    match = await WebRequest(result.Sources[0], @"<li>Rating: (.*?) <span class="".*?""><\/span><\/li>");
+                    match = await WebRequest(result.Sources, @"<li>Rating: (.*?) <span class="".*?""><\/span><\/li>");
                     if (!match.Success) result.Rating = SourceRating.Unknown;
                     else result.Rating = (SourceRating)Array.IndexOf(new[] { null, "Safe", "Questionable", "Explicit" }, match.Groups[1].Value);
                     break;
 
                 case SiteIndex.e621:
-                    match = await WebRequest(result.Sources[0], @"<li>Rating: <span class="".*?"">(.*)<\/span><\/li>");
+                    match = await WebRequest(result.Sources, @"<li>Rating: <span class="".*?"">(.*)<\/span><\/li>");
                     if (!match.Success) result.Rating = SourceRating.Unknown;
                     else result.Rating = (SourceRating)Array.IndexOf(new[] { null, "Safe", "Questionable", "Explicit" }, match.Groups[1].Value);
                     break;
@@ -226,7 +227,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
                     break;
 
                 case SiteIndex.DeviantArt:
-                    match = await WebRequest(result.Sources[0], @"<h1>Mature Content<\/h1>");
+                    match = await WebRequest(result.Sources, @"<h1>Mature Content<\/h1>");
                     result.Rating = match.Success ? SourceRating.Nsfw : SourceRating.Safe;
                     break;
 

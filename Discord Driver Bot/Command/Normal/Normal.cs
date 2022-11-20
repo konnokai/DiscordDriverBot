@@ -346,7 +346,7 @@ namespace Discord_Driver_Bot.Command.Normal
                     foreach (var item in sauceResult)
                     {
                         if (item.Index == SauceNAOClient.SiteIndex.nHentai) description.Add($"NHentai {item.Similarity}% 相似度");
-                        else if (item.Sources != null) description.Add($"[{item.DB}]({item.Sources[0]}) {item.Similarity}% 相似度");
+                        else if (item.Sources != null) description.Add($"[{item.DB}]({item.Sources}) {item.Similarity}% 相似度");
                     }
 
                     EmbedBuilder embedBuilder = new EmbedBuilder()

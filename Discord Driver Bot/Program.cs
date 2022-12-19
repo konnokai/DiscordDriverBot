@@ -59,6 +59,8 @@ namespace Discord_Driver_Bot
 
             BotConfig.InitBotConfig();
 
+            if (!string.IsNullOrEmpty(BotConfig.GitHubApiKey)) 
+                gitHubClient.Credentials = new Credentials(BotConfig.GitHubApiKey);
             EHentaiAPIClient = new EHentaiAPIClient();
 
             timerUpdateStatus = new Timer((state) => ChangeStatus());
@@ -124,7 +126,7 @@ namespace Discord_Driver_Bot
                             if (File.Exists(GetDataFilePath("db.raw.json")))
                             {
                                 File.Delete(GetDataFilePath("db.raw.json.tmp"));
-                                Log.FormatColorWrite($"Ex標籤更新完成\n`{release.Name}`", ConsoleColor.DarkCyan);
+                                Log.FormatColorWrite($"Ex標籤更新完成: `{release.Name}`", ConsoleColor.DarkCyan);
                             }
                             else
                             {

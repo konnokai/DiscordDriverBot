@@ -9,6 +9,7 @@ public class BotConfig
     public string ExHentaiCookieMemberId { get; set; } = "";
     public string ExHentaiCookiePassHash { get; set; } = "";
     public string ExHentaiCookieSK { get; set; } = "";
+    public string GitHubApiKey { get; set; } = "";
     public string SauceNAOApiKey { get; set; } = "";
     public ulong TestSlashCommandGuildId { get; set; } = 0;
 
@@ -75,11 +76,18 @@ public class BotConfig
                 Environment.Exit(3);
             }
 
+            if (string.IsNullOrWhiteSpace(config.GitHubApiKey))
+            {
+                Log.Warn("GitHubApiKey遺失，將不使用API Key，可能會遇到Rate limlt");
+                Log.Warn("如需註冊請至 https://github.com/settings/tokens 中新增 (不須設定Scope)");
+            }
+
             DiscordToken = config.DiscordToken;
             WebHookUrl = config.WebHookUrl;
             ExHentaiCookieMemberId = config.ExHentaiCookieMemberId;
             ExHentaiCookiePassHash = config.ExHentaiCookiePassHash;
             ExHentaiCookieSK = config.ExHentaiCookieSK;
+            GitHubApiKey = config.GitHubApiKey;
             SauceNAOApiKey = config.SauceNAOApiKey;
             TestSlashCommandGuildId = config.TestSlashCommandGuildId;
         }

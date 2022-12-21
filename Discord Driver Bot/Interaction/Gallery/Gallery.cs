@@ -5,7 +5,7 @@ using Discord_Driver_Bot.HttpClients.Ascii2D;
 using Discord_Driver_Bot.HttpClients.SauceNAO;
 using Discord_Driver_Bot.Interaction.Attribute;
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -14,19 +14,8 @@ namespace Discord_Driver_Bot.Interaction.Gallery
 {
     [EnabledInDm(false)]
     [Group("gallery", "本本用")]
-    public class Gallery : TopLevelModule
+    public class Gallery : TopLevelModule<GalleryService>
     {
-        private Ascii2DClient _ascii2DClient;
-        private SauceNAOClient _sauceNAOClient;
-        private IHttpClientFactory _httpClientFactory;
-        private string[] AllowedFileTypes { get; } = new[] { ".jpg", ".jpeg", ".gif", ".bmp", ".png", ".svg", ".webp" };
-
-        public Gallery(Ascii2DClient ascii2DClient, SauceNAOClient sauceNAOClient, IHttpClientFactory httpClientFactory)
-        {
-            _ascii2DClient = ascii2DClient;
-            _sauceNAOClient = sauceNAOClient;
-            _httpClientFactory = httpClientFactory;
-        }
 
         public enum SearchHost
         {
@@ -184,130 +173,83 @@ namespace Discord_Driver_Bot.Interaction.Gallery
             }
         }
 
+        [SlashCommand("sauce-from-attachment", "以附件來搜圖")]
+        public async Task SauceFromAttachmentAsync([Summary("圖片附件")] Attachment attachment)
+            => await SauceFromUrlAsync(attachment.Url);
+
+        [SlashCommand("sauce-from-url", "以圖片網址來搜圖")]
+        public async Task SauceFromUrlAsync([Summary("圖片網址")] string url)
+        {
+            if (!_service.AllowedFileTypes.Any((x) => x == Path.GetExtension(url)))
+            {
+                await Context.Interaction.SendErrorAsync($"副檔名: \"{Path.GetExtension(url)}\" 不可用於搜尋");
+                return;
+            }
+
+            bool ephemeral = !(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw);
+            await DeferAsync(ephemeral);
+
+            try
+            {
+                var result = await _service.SauceFromAscii2DAsync(url);
+                if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
+                    await FollowupAsync(embed: result.Embed, ephemeral: ephemeral);
+                else
+                    await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
+
+                result = await _service.SauceFromSauceNAOAsync(url);
+                if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
+                    await FollowupAsync(embed: result.Embed, ephemeral: ephemeral);
+                else
+                    await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
+            }
+            catch (Exception ex)
+            {
+                await Context.Interaction.SendErrorAsync("搜尋失敗", true);
+                Log.Error(ex.ToString());
+            }
+        }
+
         [MessageCommand("搜尋Ascii2D")]
         public async Task SauceAscii2DAsync(IMessage message)
         {
             if (message == null ||
-               message.Attachments.Count == 0 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Content)) ||
-               message.Attachments.Count >= 1 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Attachments.First().Url)))
+               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
+               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url)))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
                 return;
             }
 
             string url = message.Attachments.Count > 0 ? message.Attachments.First().Url : message.Content;
-            await Context.Interaction.DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
+            await DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
 
-            try
-            {
-                using var client = _httpClientFactory.CreateClient();
-                var req = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
-                req.EnsureSuccessStatusCode();
-
-                if (req.Content.Headers.ContentLength > 5242880)
-                {
-                    await Context.Interaction.SendErrorAsync("圖檔不可大於5MB", true);
-                    return;
-                }
-            }
-            catch (Exception ex)
-            {
-                await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
-                Log.Error(url);
-                Log.Error(ex.ToString());
-            }
-
-            try
-            {
-                var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
-                if (ascii2dResult != null)
-                {
-                    try
-                    {
-                        List<string> description = new List<string>();
-                        await foreach (var item in ascii2dResult)
-                        {
-                            if (item.Host == "dlsite")
-                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
-                            else
-                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
-                        }
-
-                        EmbedBuilder embedBuilder = new EmbedBuilder()
-                            .WithOkColor()
-                            .WithTitle(ascii2dResult.FirstAsync().Result.Title)
-                            .WithDescription(string.Join('\n', description))
-                            .WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail)
-                            .WithFooter("Ascii2D");
-
-                        await FollowupAsync(embed: embedBuilder.Build());
-                    }
-                    catch (Exception ex)
-                    {
-                        await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
-                        Log.Error(url);
-                        Log.Error(ex.ToString());
-                    }
-                }
-                else
-                {
-                    await Context.Interaction.SendErrorAsync($"搜尋失敗，無回傳值", true);
-                }
-            }
-            catch (Exception ex)
-            {
-                await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
-                Log.Error(url);
-                Log.Error(ex.ToString());
-            }
+            var result = await _service.SauceFromAscii2DAsync(url);
+            if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
+                await FollowupAsync(embed: result.Embed);
+            else
+                await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
         }
 
         [MessageCommand("搜尋SauceNAO")]
         public async Task SauceSauceNAOAsync(IMessage message)
         {
             if (message == null ||
-               message.Attachments.Count == 0 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Content)) ||
-               message.Attachments.Count >= 1 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Attachments.First().Url)))
+               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
+               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url)))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
                 return;
             }
 
             string url = message.Attachments.Count > 0 ? message.Attachments.First().Url : message.Content;
-            await Context.Interaction.DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
+            await DeferAsync(!(Context.Channel is SocketTextChannel && (Context.Channel as SocketTextChannel).IsNsfw));
 
-            try
-            {
-                var sauceResult = await _sauceNAOClient.GetSauceAsync(url).ConfigureAwait(false);
-                if (sauceResult != null)
-                {
-                    List<string> description = new List<string>();
-                    foreach (var item in sauceResult)
-                    {
-                        if (item.Index == SauceNAOClient.SiteIndex.nHentai) description.Add($"NHentai {item.Similarity}% 相似度");
-                        else if (item.Sources != null) description.Add($"[{item.DB}]({item.Sources}) {item.Similarity}% 相似度");
-                    }
-
-                    EmbedBuilder embedBuilder = new EmbedBuilder()
-                        .WithOkColor()
-                        .WithTitle(sauceResult[0].Title)
-                        .WithDescription(string.Join('\n', description))
-                        .WithThumbnailUrl(sauceResult[0].Thumbnail)
-                        .WithFooter("SauceNAO");
-
-                    await FollowupAsync(embed: embedBuilder.Build());
-                }
-                else
-                {
-                    await Context.Interaction.SendErrorAsync("搜尋失敗，無回傳值", true);
-                }
-            }
-            catch (Exception ex)
-            {
-                await Context.Interaction.SendErrorAsync("搜尋失敗，未知的錯誤", true);
-                Log.Error(url);
-                Log.Error(ex.ToString());
-            }
+            var result = await _service.SauceFromSauceNAOAsync(url);
+            if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
+                await FollowupAsync(embed: result.Embed);
+            else
+                await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
         }
 
         [MessageCommand("解析訊息內的網址")]

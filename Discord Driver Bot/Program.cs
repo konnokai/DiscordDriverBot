@@ -228,8 +228,6 @@ namespace Discord_Driver_Bot
 
                         if (File.Exists(GetDataFilePath("CommandCount.bin")))
                             commandCount = BitConverter.ToInt32(File.ReadAllBytes(GetDataFilePath("CommandCount.bin")));
-                        else
-                            File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));
 
                         if (commandCount == iService.GetService<InteractionHandler>().CommandCount) return;
                     }
@@ -251,6 +249,7 @@ namespace Discord_Driver_Bot
                         await iService.GetService<InteractionService>().RegisterCommandsToGuildAsync(BotConfig.TestSlashCommandGuildId);
 #else
                     await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
+                    File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));
                     Log.Info("已註冊全球指令");
 #endif
                 }

@@ -47,25 +47,46 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
             }
             else
             {
-                var result = await GetIllustDataFromAjaxAsync(id.ToString());
-                var converter = new Converter();
-
-                if (!result.Status)
+                try
                 {
-                    if (string.IsNullOrEmpty(result.Error))
-                        return;
-                    else
-                        throw new Exception(result.Error);
+
+                    var result = await GetIllustDataFromAjaxAsync(id.ToString());
+                    if (!result.Status)
+                    {
+                        if (string.IsNullOrEmpty(result.Error))
+                            return;
+                        else
+                            throw new Exception(result.Error);
+                    }
+
+                    var thumbnailUrlResult = await GetThumbnailUrlFromPixivCatAsync(id.ToString());
+                    if (!thumbnailUrlResult.Status)
+                    {
+                        if (string.IsNullOrEmpty(thumbnailUrlResult.Error))
+                            return;
+                        else
+                            throw new Exception(thumbnailUrlResult.Error);
+                    }
+
+                    var converter = new Converter();
+                    Body illust = result.Reslut.Body;
+                    title = illust.Title;
+                    description = illust.Description;
+                    description = converter.Convert(illust.Description);
+                    thumbnailURL = thumbnailUrlResult.ThumbnailUrl.Replace("i.pixiv.cat", "pixiv.konnokai.workers.dev");
+                    tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
+
+                    new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, thumbnailURL, tags).InsertNewData();
                 }
-
-                Body illust = result.Reslut.Body;
-                title = illust.Title;
-                description = illust.Description;
-                description = converter.Convert(illust.Description);
-                thumbnailURL = illust.Urls.Thumb.Replace("i.pximg.net", "pixiv.konnokai.workers.dev");
-                tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
-
-                new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, thumbnailURL, tags).InsertNewData();
+                catch (Exception ex)
+                {
+                    if (interactionContext == null)
+                        await messageChannel.SendErrorAsync("發生了未知的錯誤");
+                    else
+                        await interactionContext.Interaction.FollowupAsync("發生了未知的錯誤", ephemeral: true);
+                    Log.Error(ex.ToString());
+                    return;
+                }
             }
 
             Log.NewBook($"{thumbnailURL}");
@@ -142,12 +163,22 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 
         private static async Task<(bool Status, IllustMetadata Reslut, string Error)> GetIllustDataFromAjaxAsync(string id)
         {
-            string result = "";
-            string error = "發生了未知的錯誤";
-
             try
             {
-                result = await HttpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
+                string result = await HttpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
+                var illust = JsonConvert.DeserializeObject<IllustMetadata>(result);
+
+                if (illust == null)
+                {
+                    return (false, null, "");
+                }
+                else if (illust.Error && !string.IsNullOrWhiteSpace(illust.Message))
+                {
+                    Log.Error(illust.Message);
+                    return (false, null, illust.Message);
+                }
+
+                return (true, illust, "");
             }
             catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
@@ -156,23 +187,42 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
             catch (Exception ex)
             {
                 Log.Error(ex.ToString());
-                return (false, null, error);
+                return (false, null, "發生了未知的錯誤");
             }
+        }
 
-            var illust = JsonConvert.DeserializeObject<IllustMetadata>(result);
+        private static async Task<(bool Status, string ThumbnailUrl, string Error)> GetThumbnailUrlFromPixivCatAsync(string id)
+        {
+            var content = new FormUrlEncodedContent(new KeyValuePair<string, string>[] { new("p", id) });
 
-            if (illust == null)
+            try
             {
-                return (false, null, "");
-            }
-            else if (illust.Error)
-            {
-                Log.Error(result);
-                if (!string.IsNullOrWhiteSpace(illust.Message))
-                    return (false, null, illust.Message);
-            }
+                var postResult = await HttpClient.PostAsync("https://api.pixiv.cat/v1/generate", content);
+                postResult.EnsureSuccessStatusCode();
 
-            return (true, illust, "");
+                PixivCat pixivCat = JsonConvert.DeserializeObject<PixivCat>(await postResult.Content.ReadAsStringAsync());
+
+                if (pixivCat == null)
+                {
+                    return (false, null, "");
+                }
+                else if (!pixivCat.Success)
+                {
+                    Log.Error(pixivCat.Error);
+                    return (false, null, pixivCat.Error);
+                }
+
+                return (true, pixivCat.Thumbnails.First(), "");
+            }
+            catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return (false, null, "找不到此Id的資料，可能已被刪除");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+                return (false, null, "發生了未知的錯誤");
+            }
         }
     }
 }

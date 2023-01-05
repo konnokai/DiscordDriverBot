@@ -177,7 +177,7 @@ namespace Discord_Driver_Bot.Command
             if (addPaginatedFooter)
                 embed.AddPaginatedFooter(currentPage, lastPage);
 
-            var msg = await ctx.Channel.EmbedAsync(embed).ConfigureAwait(false) as IUserMessage;
+            var msg = await ctx.Channel.EmbedAsync(embed).ConfigureAwait(false);
 
             if (lastPage == 0)
                 return;

@@ -246,7 +246,10 @@ namespace Discord_Driver_Bot
                     if (BotConfig.TestSlashCommandGuildId == 0 || _client.GetGuild(BotConfig.TestSlashCommandGuildId) == null)
                         Log.Warn("未設定測試Slash指令的伺服器或伺服器不存在，略過");
                     else
+                    {
                         await iService.GetService<InteractionService>().RegisterCommandsToGuildAsync(BotConfig.TestSlashCommandGuildId);
+                        Log.Info("已註冊測試用指令");
+                    }
 #else
                     await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
                     File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));

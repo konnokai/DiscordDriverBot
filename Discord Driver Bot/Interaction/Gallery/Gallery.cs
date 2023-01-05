@@ -262,10 +262,10 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                 return;
             }
 
-            await DeferAsync();
-
             try
             {
+                await DeferAsync();
+
                 foreach (string item in content.Split(new char[] { '\n' }))
                 {
                     if (await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(item, Context.Guild, message.Channel, message.Author, Context))

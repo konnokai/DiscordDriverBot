@@ -217,6 +217,8 @@ namespace Discord_Driver_Bot
                 timerUpdateStatus.Change(0, 15 * 60 * 1000);
                 timerCheckTranUpdate.Change(0, 60 * 60 * 1000);
 
+                UptimeKumaClient.Init(BotConfig.UptimeKumaPushUrl, _client);
+
                 ApplicatonOwner = _client.GetApplicationInfoAsync().GetAwaiter().GetResult().Owner;
                 isConnect = true;
 

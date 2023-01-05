@@ -12,6 +12,7 @@ public class BotConfig
     public string GitHubApiKey { get; set; } = "";
     public string SauceNAOApiKey { get; set; } = "";
     public ulong TestSlashCommandGuildId { get; set; } = 0;
+    public string UptimeKumaPushUrl { get; set; } = "";
 
     public void InitBotConfig()
     {
@@ -90,6 +91,7 @@ public class BotConfig
             GitHubApiKey = config.GitHubApiKey;
             SauceNAOApiKey = config.SauceNAOApiKey;
             TestSlashCommandGuildId = config.TestSlashCommandGuildId;
+            UptimeKumaPushUrl = config.UptimeKumaPushUrl;
         }
         catch (Exception ex)
         {

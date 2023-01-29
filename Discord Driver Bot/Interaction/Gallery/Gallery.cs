@@ -264,16 +264,21 @@ namespace Discord_Driver_Bot.Interaction.Gallery
 
             try
             {
+                bool hasAnyResult = false;
                 await DeferAsync();
 
                 foreach (string item in content.Split(new char[] { '\n' }))
                 {
                     if (await Discord_Driver_Bot.Gallery.Function.ShowGalleryInfoAsync(item, Context.Guild, message.Channel, message.Author, Context))
                     {
+                        hasAnyResult = true;
                         Log.FormatColorWrite($"[{Context.Guild.Name}/{Context.Channel.Name}]{Context.User.Username}: {item}", ConsoleColor.Gray);
                         SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
                     }
                 }
+
+                if (!hasAnyResult)
+                    await Context.Interaction.SendErrorAsync("無任何可供解析的網址", true);
             }
             catch (Exception ex)
             {

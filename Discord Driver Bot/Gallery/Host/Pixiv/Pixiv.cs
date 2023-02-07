@@ -89,7 +89,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
                 }
             }
 
-            Log.NewBook($"{thumbnailURL}");
+            Log.New($"{thumbnailURL}");
 
             EmbedBuilder discordEmbedBuilder = new EmbedBuilder().WithOkColor()
                 .WithTitle(title)

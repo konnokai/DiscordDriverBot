@@ -62,7 +62,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                     new SQLite.Table.BookData(string.Format("https://nhentai.net/g/{0}", ID), title, japanTitle, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.NewBook($"{thumbnailURL} ({bookName})");
+                Log.New($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()

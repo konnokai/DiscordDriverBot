@@ -95,7 +95,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                     new SQLite.Table.BookData(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID), title, description, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.NewBook($"{thumbnailURL} ({bookName})");
+                Log.New($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()

@@ -82,7 +82,7 @@ namespace Discord_Driver_Bot.Gallery.Host.EHentai
                     new BookData(string.Format("https://exhentai.org/g/{0}/{1}/", ID, token), title, japanTitle, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.NewBook($"{thumbnailURL} ({bookName})");
+                Log.New($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()

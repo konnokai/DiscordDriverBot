@@ -61,7 +61,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                     new SQLite.Table.BookData(string.Format("https://hitomi.la/galleries/{0}", id), title, artist, thumbnailURL, dicTag).InsertNewData();
                 }
 
-                Log.NewBook($"{thumbnailURL} ({bookName})");
+                Log.New($"{thumbnailURL} ({bookName})");
 
                 EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
                     .WithOkColor()

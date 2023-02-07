@@ -1,31 +1,56 @@
-﻿using Discord;
-using System;
+﻿using Discord.WebSocket;
+using Discord;
 using System.Threading.Tasks;
+using System;
+
 public static class Log
 {
-    public static void NewBook(string text, bool newLine = true)
+    private static readonly object logLockObj = new();
+
+    public static void New(string text, bool newLine = true)
     {
-        FormatColorWrite(text, ConsoleColor.Green, newLine);
+        lock (logLockObj)
+        {
+            FormatColorWrite(text, ConsoleColor.Green, newLine);
+        }
     }
 
     public static void Info(string text, bool newLine = true)
     {
-        FormatColorWrite(text, ConsoleColor.DarkYellow, newLine);
+        lock (logLockObj)
+        {
+            FormatColorWrite(text, ConsoleColor.DarkYellow, newLine);
+        }
     }
 
     public static void Warn(string text, bool newLine = true)
     {
-        FormatColorWrite(text, ConsoleColor.DarkMagenta, newLine);
+        lock (logLockObj)
+        {
+            FormatColorWrite(text, ConsoleColor.DarkMagenta, newLine);
+        }
     }
 
     public static void Error(string text, bool newLine = true)
     {
-        FormatColorWrite(text, ConsoleColor.DarkRed, newLine);
+        lock (logLockObj)
+        {
+            FormatColorWrite(text, ConsoleColor.DarkRed, newLine);
+        }
+    }
+
+    public static void Error(Exception ex, string text, bool newLine = true)
+    {
+        lock (logLockObj)
+        {
+            FormatColorWrite(text, ConsoleColor.DarkRed, newLine);
+            FormatColorWrite(ex.ToString(), ConsoleColor.DarkRed, newLine);
+        }
     }
 
     public static void FormatColorWrite(string text, ConsoleColor consoleColor = ConsoleColor.Gray, bool newLine = true)
     {
-        text = DateTime.Now.ToString() + " " + text;
+        text = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}] {text}";
         Console.ForegroundColor = consoleColor;
         if (newLine) Console.WriteLine(text);
         else Console.Write(text);
@@ -49,11 +74,14 @@ public static class Log
                 break;
         }
 
+#if DEBUG
         if (!string.IsNullOrEmpty(message.Message)) FormatColorWrite(message.Message, consoleColor);
+#endif
 
-        if (message.Exception != null)
+        if (message.Exception != null && message.Exception is not GatewayReconnectException)
         {
             consoleColor = ConsoleColor.DarkRed;
+            FormatColorWrite(message.Exception.GetType().FullName, consoleColor);
             FormatColorWrite(message.Exception.Message, consoleColor);
             FormatColorWrite(message.Exception.StackTrace, consoleColor);
         }

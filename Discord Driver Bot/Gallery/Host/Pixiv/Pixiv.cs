@@ -116,7 +116,6 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
-
             }
             catch (Exception ex)
             {
@@ -212,7 +211,9 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
                     return (false, null, pixivCat.Error);
                 }
 
-                return (true, pixivCat.Thumbnails.First(), "");
+                // Thumbnails欄位只有在多圖的時候會出現
+                // 感覺直接回傳OriginalUrl不太好 :thinking:
+                return (true, pixivCat.Thumbnails != null ? pixivCat.Thumbnails.First() : pixivCat.OriginalUrlProxy, "");
             }
             catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
             {

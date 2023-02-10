@@ -32,8 +32,14 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
         [JsonProperty("multiple")]
         public bool Multiple { get; set; }
 
+        [JsonProperty("original_url")]
+        public string OriginalUrl { get; set; }
+
         [JsonProperty("original_urls")]
         public List<string> OriginalUrls { get; set; }
+
+        [JsonProperty("original_url_proxy")]
+        public string OriginalUrlProxy { get; set; }
 
         [JsonProperty("original_urls_proxy")]
         public List<string> OriginalUrlsProxy { get; set; }
@@ -41,6 +47,4 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
         [JsonProperty("thumbnails")]
         public List<string> Thumbnails { get; set; }
     }
-
-
 }

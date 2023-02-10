@@ -21,7 +21,7 @@ namespace Discord_Driver_Bot.Command.Administration
                 item.Embeds.First().Footer.HasValue && item.Embeds.First().Footer.Value.Text.Contains(uId.ToString()));
 
 
-            await Task.WhenAll(Task.Delay(1000), textChannel.DeleteMessagesAsync(msgs)).ConfigureAwait(false);     
+            await Task.WhenAll(Task.Delay(1000), textChannel.DeleteMessagesAsync(msgs)).ConfigureAwait(false);
         }
 
         public async Task ClearUser(ITextChannel textChannel)

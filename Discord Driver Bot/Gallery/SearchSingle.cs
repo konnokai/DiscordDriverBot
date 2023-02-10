@@ -52,7 +52,7 @@ namespace Discord_Driver_Bot.Gallery
                 }
             }
             catch (Exception) { }
-            
+
             return url != "" && language != "";
         }
 

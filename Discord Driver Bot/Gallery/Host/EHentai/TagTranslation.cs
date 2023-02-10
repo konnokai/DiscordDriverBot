@@ -3,9 +3,9 @@
 namespace Discord_Driver_Bot.Gallery.Host.EHentai
 {
     static class TagTranslation
-    {       
+    {
         public static List<DatumElement> TranslationData { get; set; }
-        
+
         public static string FormatNameMarkDown(this string text)
         {
             if (text.Contains(")"))

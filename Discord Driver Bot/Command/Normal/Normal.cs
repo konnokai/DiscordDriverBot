@@ -39,7 +39,7 @@ namespace Discord_Driver_Bot.Command.Normal
             "\n!!AutoGodSay 1496326/aa30f4bfae" +
             "\n\n可以同時輸入多組語言來執行，請用\" \"分隔，單次執行最多五本")]
         [Alias("AGS")]
-        public async Task AutoGodSayAsync([Summary("神的語言")][Remainder]string godSay = null)
+        public async Task AutoGodSayAsync([Summary("神的語言")][Remainder] string godSay = null)
         {
             if (godSay == null) { await ReplyAsync(Context.User.Mention + " 沒有神的語言"); return; }
 
@@ -73,7 +73,7 @@ namespace Discord_Driver_Bot.Command.Normal
                         await Context.Channel.SendErrorAsync($"我不知道 {item} 所代表的網站，請使用 `!!godsay 本子網址縮寫 神的語言`");
                         return;
                 }
-                
+
                 if (host != "")
                 {
                     await GodSayAsync(host, item);
@@ -133,7 +133,7 @@ namespace Discord_Driver_Bot.Command.Normal
         public async Task PingAsync()
         {
             EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor().WithDescription(":ping_pong: " + _client.Latency.ToString() + "ms");
-            await ReplyAsync(null, false , embedBuilder.Build());
+            await ReplyAsync(null, false, embedBuilder.Build());
         }
 
         [Command("Search")]
@@ -141,10 +141,10 @@ namespace Discord_Driver_Bot.Command.Normal
             "\n預設搜尋ExHentai" +
             "\n如關鍵字有空白，請在關鍵字錢後加上\"\"" +
             "\n\n例:" +
-            "\n!!Search ex \"空色れん\" 1")]        
+            "\n!!Search ex \"空色れん\" 1")]
         [Alias("S")]
         [RequireNsfw]
-        public async Task SearchAsync([Summary("搜尋網站")] string host = "ex", [Summary("本子關鍵字")]string keyWord = null, [Summary("頁數")]int page = 1)
+        public async Task SearchAsync([Summary("搜尋網站")] string host = "ex", [Summary("本子關鍵字")] string keyWord = null, [Summary("頁數")] int page = 1)
         {
             if (keyWord == null) { await ReplyAsync("缺少本子關鍵字，你以為我會通靈嗎"); return; }
 
@@ -262,7 +262,7 @@ namespace Discord_Driver_Bot.Command.Normal
             "也可以直接丟出網址來搜尋\n" +
             "或是透過對該圖片回應並輸入 `!!sauce` 同樣可以搜圖")]
         [Priority(1)]
-        public async Task SauceAsync([Summary("向上略過幾張圖片")]int skip = 0)
+        public async Task SauceAsync([Summary("向上略過幾張圖片")] int skip = 0)
         {
             IMessage message = Context.Message.ReferencedMessage;
             if (message == null)
@@ -271,8 +271,8 @@ namespace Discord_Driver_Bot.Command.Normal
             if (message == null ||
                 message.Attachments.Count == 0 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Content)) ||
                 message.Attachments.Count >= 1 && !AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(message.Attachments.First().Url)))
-            { 
-                await Context.Channel.SendErrorAsync("不存在可搜尋的圖片"); 
+            {
+                await Context.Channel.SendErrorAsync("不存在可搜尋的圖片");
                 return;
             }
 
@@ -281,7 +281,7 @@ namespace Discord_Driver_Bot.Command.Normal
 
         [Command("Sauce")]
         [Priority(0)]
-        public async Task SauceAsync([Summary("網址")]string url)
+        public async Task SauceAsync([Summary("網址")] string url)
         {
             try
             {
@@ -365,10 +365,10 @@ namespace Discord_Driver_Bot.Command.Normal
                     await Context.Channel.SendErrorAsync($"SauceNAO搜尋失敗");
                 }
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 await Context.Channel.SendErrorAsync("搜尋失敗");
-                Log.Error(ex.ToString()); 
+                Log.Error(ex.ToString());
             }
         }
 
@@ -379,5 +379,5 @@ namespace Discord_Driver_Bot.Command.Normal
           (x.Content.StartsWith("https://") && AllowedFileTypes.Any((x2) => x2 == System.IO.Path.GetExtension(x.Content))))
               .Skip(skip).Take(1).FirstOrDefault();
         }
-    } 
+    }
 }

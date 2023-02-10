@@ -59,7 +59,7 @@ namespace Discord_Driver_Bot
 
             BotConfig.InitBotConfig();
 
-            if (!string.IsNullOrEmpty(BotConfig.GitHubApiKey)) 
+            if (!string.IsNullOrEmpty(BotConfig.GitHubApiKey))
                 gitHubClient.Credentials = new Credentials(BotConfig.GitHubApiKey);
             EHentaiAPIClient = new EHentaiAPIClient();
 

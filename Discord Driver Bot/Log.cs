@@ -1,7 +1,7 @@
-﻿using Discord.WebSocket;
-using Discord;
-using System.Threading.Tasks;
+﻿using Discord;
+using Discord.WebSocket;
 using System;
+using System.Threading.Tasks;
 
 public static class Log
 {

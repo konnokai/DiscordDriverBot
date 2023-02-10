@@ -14,7 +14,7 @@ namespace Discord_Driver_Bot.Interaction.Attribute
         }
 
         public uint? GuildMemberCount { get; }
-        public override string ErrorMessage { get;  } = "此伺服器不可使用本指令";
+        public override string ErrorMessage { get; } = "此伺服器不可使用本指令";
 
         public override Task<PreconditionResult> CheckRequirementsAsync(IInteractionContext context, ICommandInfo commandInfo, IServiceProvider services)
         {

@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 using static Discord_Driver_Bot.HttpClients.SauceNAO.SauceNAOClient;
 
 namespace Discord_Driver_Bot.HttpClients.SauceNAO

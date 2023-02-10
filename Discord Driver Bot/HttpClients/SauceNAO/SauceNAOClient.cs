@@ -169,7 +169,7 @@ namespace Discord_Driver_Bot.HttpClients.SauceNAO
             return rn?.ToString();
         }
 
-        string _getTitle(JToken data) => (data["title"] ?? data["jp_name"] ?? data["eng_name"]  ?? data["material"] ?? data["source"])?.ToString();
+        string _getTitle(JToken data) => (data["title"] ?? data["jp_name"] ?? data["eng_name"] ?? data["material"] ?? data["source"])?.ToString();
 
         private async Task<Result> GetRating(HttpClient client, Result result)
         {

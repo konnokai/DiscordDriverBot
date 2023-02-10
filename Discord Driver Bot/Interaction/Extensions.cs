@@ -176,7 +176,7 @@ namespace Discord_Driver_Bot.Interaction
             => ctx.SendPaginatedConfirmAsync(currentPage, (x) => Task.FromResult(pageFunc(x)), totalElements, itemsPerPage, addPaginatedFooter, ephemeral, isFollowup);
 
         public static async Task SendPaginatedConfirmAsync(this IInteractionContext ctx, int currentPage,
-    Func<int, Task<EmbedBuilder>> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true, bool ephemeral = false,bool isFollowup = false)
+    Func<int, Task<EmbedBuilder>> pageFunc, int totalElements, int itemsPerPage, bool addPaginatedFooter = true, bool ephemeral = false, bool isFollowup = false)
         {
             var embed = await pageFunc(currentPage).ConfigureAwait(false);
 

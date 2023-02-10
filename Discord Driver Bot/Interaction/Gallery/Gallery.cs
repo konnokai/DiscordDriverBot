@@ -1,13 +1,10 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Discord_Driver_Bot.HttpClients.Ascii2D;
-using Discord_Driver_Bot.HttpClients.SauceNAO;
 using Discord_Driver_Bot.Interaction.Attribute;
 using System;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Discord_Driver_Bot.Interaction.Gallery

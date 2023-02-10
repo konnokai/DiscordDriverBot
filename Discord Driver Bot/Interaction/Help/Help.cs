@@ -31,7 +31,7 @@ namespace Discord_Driver_Bot.Interaction.Help
         }
 
         [SlashCommand("get-all-commands", "顯示模組內包含的指令")]
-        public async Task Commands([Summary("模組名稱")]string module)
+        public async Task Commands([Summary("模組名稱")] string module)
         {
             module = module?.Trim();
             if (string.IsNullOrWhiteSpace(module))
@@ -41,7 +41,7 @@ namespace Discord_Driver_Bot.Interaction.Help
             }
 
             var cmds = _interaction.SlashCommands.Where(c => c.Module.Name.ToUpperInvariant().StartsWith(module.ToUpperInvariant(), StringComparison.InvariantCulture)).OrderBy(c => c.Name).Distinct(new CommandTextEqualityComparer());
-            if (cmds.Count() == 0) { await Context.Interaction.SendErrorAsync($"找不到 {module} 模組",ephemeral: true); return; }
+            if (cmds.Count() == 0) { await Context.Interaction.SendErrorAsync($"找不到 {module} 模組", ephemeral: true); return; }
 
             var succ = new HashSet<SlashCommandInfo>((await Task.WhenAll(cmds.Select(async x =>
             {

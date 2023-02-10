@@ -68,7 +68,7 @@ namespace Discord_Driver_Bot.Gallery.Host
                     .WithTitle(title)
                     .WithDescription(artist)
                     .WithUrl($"https://hitomi.la/galleries/{id}.html");
-                    //.WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                //.WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
 
                 foreach (var item in dicTag)
                     discordEmbedBuilder.AddField(item.Key, string.Join("\n", item.Value), false);

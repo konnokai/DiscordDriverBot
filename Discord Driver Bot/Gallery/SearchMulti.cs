@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Discord_Driver_Bot.Gallery
 {
 
-    public  class SearchResult
+    public class SearchResult
     {
         public string SearchURL { get; set; }
         public int SearchCount { get; set; }

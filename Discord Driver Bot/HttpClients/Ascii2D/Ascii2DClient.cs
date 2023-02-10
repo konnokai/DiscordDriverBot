@@ -48,8 +48,8 @@ namespace Discord_Driver_Bot.HttpClients.Ascii2D
                 try
                 {
                     var strongNode = detail.SelectSingleNode("strong");
-                    if (strongNode != null)                    
-                        strong = strongNode.InnerText + ": ";                    
+                    if (strongNode != null)
+                        strong = strongNode.InnerText + ": ";
                 }
                 catch (System.Exception) { }
 
@@ -88,7 +88,7 @@ namespace Discord_Driver_Bot.HttpClients.Ascii2D
                     nameAndAuthor = detail.SelectNodes("h6/a[@href]");
                     host = detail.SelectSingleNode("h6/small").InnerText;
                 }
-                
+
                 if (nameAndAuthor == null) continue;
 
                 for (int i = 0; i < nameAndAuthor.Count; i++)

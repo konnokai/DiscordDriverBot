@@ -1,6 +1,4 @@
 ﻿using Discord;
-using Discord.Interactions;
-using Discord.WebSocket;
 using Discord_Driver_Bot.HttpClients.Ascii2D;
 using Discord_Driver_Bot.HttpClients.SauceNAO;
 using System;

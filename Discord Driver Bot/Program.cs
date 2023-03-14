@@ -164,7 +164,7 @@ namespace Discord_Driver_Bot
                 LogLevel = LogSeverity.Warning,
                 ConnectionTimeout = int.MaxValue,
                 MessageCacheSize = 50,
-                GatewayIntents = GatewayIntents.All & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents,
+                GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents,
                 AlwaysDownloadDefaultStickers = false,
                 AlwaysResolveStickers = false,
                 FormatUsersInBidirectionalUnicode = false,

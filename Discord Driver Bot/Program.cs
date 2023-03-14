@@ -161,9 +161,14 @@ namespace Discord_Driver_Bot
         {
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
-                LogLevel = LogSeverity.Error,
+                LogLevel = LogSeverity.Warning,
                 ConnectionTimeout = int.MaxValue,
                 MessageCacheSize = 50,
+                GatewayIntents = GatewayIntents.All & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents,
+                AlwaysDownloadDefaultStickers = false,
+                AlwaysResolveStickers = false,
+                FormatUsersInBidirectionalUnicode = false,
+                LogGatewayIntentWarnings = false,
             }); ;
 
             #region 初始化互動指令系統

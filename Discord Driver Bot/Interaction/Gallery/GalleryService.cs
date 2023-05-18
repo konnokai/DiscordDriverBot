@@ -103,25 +103,32 @@ namespace Discord_Driver_Bot.Interaction.Gallery
                         else if (item.Sources != null)
                         {
                             description.Add($"[{item.DB}]({item.Sources}) {item.Similarity}% 相似度");
-                            if (item.Index == SauceNAOClient.SiteIndex.Danbooru)
+                            try
                             {
-                                var htmlweb = new HtmlWeb()
+                                if (item.Index == SauceNAOClient.SiteIndex.Danbooru)
                                 {
-                                    UserAgent = "DanbooruFetcher"
-                                };
+                                    var htmlweb = new HtmlWeb()
+                                    {
+                                        UserAgent = "DanbooruFetcher"
+                                    };
 
-                                var DOM = htmlweb.Load(item.Sources);
-                                var sourceNode = DOM.GetElementbyId("post-info-source");
-                                var sourceUrlNode = sourceNode.SelectSingleNode("a");
-                                //有可能沒有Source
-                                if (sourceUrlNode is not null)
-                                {
-                                    var sourceUrl = sourceUrlNode.Attributes
-                                    .Where(a => a.Name == "href")
-                                    .First().Value;
-                                    description.Add($"自動偵測到Danbooru內的來源網址:[來源]({sourceUrl})");
+                                    var DOM = htmlweb.Load(item.Sources);
+                                    var sourceNode = DOM.GetElementbyId("post-info-source");
+                                    var sourceUrlNode = sourceNode.SelectSingleNode("a");
+
+                                    //有可能沒有Source
+                                    if (sourceUrlNode is not null)
+                                    {
+                                        var sourceUrl = sourceUrlNode.GetAttributeValue("href", "");
+                                        if (!string.IsNullOrEmpty(sourceUrl))
+                                            description.Add($"[Danbooru 來源網址]({sourceUrl})");
+                                    }
                                 }
                             }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, "Danbooru解析失敗");
+                            }                           
                         }
                     }
 

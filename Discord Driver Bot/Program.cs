@@ -161,7 +161,7 @@ namespace Discord_Driver_Bot
         {
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
-                LogLevel = LogSeverity.Warning,
+                LogLevel = LogSeverity.Verbose,
                 ConnectionTimeout = int.MaxValue,
                 MessageCacheSize = 50,
                 GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents,
@@ -170,6 +170,37 @@ namespace Discord_Driver_Bot
                 FormatUsersInBidirectionalUnicode = false,
                 LogGatewayIntentWarnings = false,
             }); ;
+
+            #region 初始化Discord設定與事件
+            _client.Log += Log.LogMsg;
+
+            _client.Ready += async () =>
+            {
+                stopWatch.Start();
+                timerUpdateStatus.Change(0, 15 * 60 * 1000);
+                timerCheckTranUpdate.Change(0, 60 * 60 * 1000);
+
+                ApplicatonOwner = (await _client.GetApplicationInfoAsync()).Owner;
+                isConnect = true;
+            };
+
+            _client.JoinedGuild += (guild) =>
+            {
+                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.OwnerId}");
+                return Task.CompletedTask;
+            };
+            #endregion
+
+            Log.Info("登入中...");
+            await _client.LoginAsync(TokenType.Bot, BotConfig.DiscordToken);
+            await _client.StartAsync();
+
+            do { await Task.Delay(200); }
+            while (!isConnect);
+
+            Log.Info("登入成功!");
+
+            UptimeKumaClient.Init(BotConfig.UptimeKumaPushUrl, _client);
 
             #region 初始化互動指令系統
             var interactionServices = new ServiceCollection()
@@ -215,18 +246,30 @@ namespace Discord_Driver_Bot
             await service.GetService<CommandHandler>().InitializeAsync();
             #endregion
 
-            #region 初始化Discord設定與事件
-            _client.Ready += async () =>
+            #region 註冊互動指令
+            try
             {
-                stopWatch.Start();
-                timerUpdateStatus.Change(0, 15 * 60 * 1000);
-                timerCheckTranUpdate.Change(0, 60 * 60 * 1000);
+                InteractionService interactionService = iService.GetService<InteractionService>();
+#if DEBUG
+                if (BotConfig.TestSlashCommandGuildId == 0 || _client.GetGuild(BotConfig.TestSlashCommandGuildId) == null)
+                    Log.Warn("未設定測試Slash指令的伺服器或伺服器不存在，略過");
+                else
+                {
+                    try
+                    {
+                        var result = await interactionService.RegisterCommandsToGuildAsync(BotConfig.TestSlashCommandGuildId);
+                        Log.Info($"已註冊指令 ({BotConfig.TestSlashCommandGuildId}) : {string.Join(", ", result.Select((x) => x.Name))}");
 
-                UptimeKumaClient.Init(BotConfig.UptimeKumaPushUrl, _client);
-
-                ApplicatonOwner = _client.GetApplicationInfoAsync().GetAwaiter().GetResult().Owner;
-                isConnect = true;
-
+                        result = await interactionService.AddModulesToGuildAsync(BotConfig.TestSlashCommandGuildId, false, interactionService.Modules.Where((x) => x.DontAutoRegister).ToArray());
+                        Log.Info($"已註冊指令 ({BotConfig.TestSlashCommandGuildId}) : {string.Join(", ", result.Select((x) => x.Name))}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("註冊伺服器專用Slash指令失敗");
+                        Log.Error(ex.ToString());
+                    }
+                }
+#else
                 try
                 {
                     try
@@ -236,58 +279,71 @@ namespace Discord_Driver_Bot
                         if (File.Exists(GetDataFilePath("CommandCount.bin")))
                             commandCount = BitConverter.ToInt32(File.ReadAllBytes(GetDataFilePath("CommandCount.bin")));
 
-                        if (commandCount == iService.GetService<InteractionHandler>().CommandCount) return;
+                        if (BotConfig.TestSlashCommandGuildId != 0 && _client.GetGuild(BotConfig.TestSlashCommandGuildId) != null)
+                        {
+                            var result = await interactionService.RemoveModulesFromGuildAsync(BotConfig.TestSlashCommandGuildId, interactionService.Modules.Where((x) => !x.DontAutoRegister).ToArray());
+                            Log.Info($"({BotConfig.TestSlashCommandGuildId}) 已移除測試指令，剩餘指令: {string.Join(", ", result.Select((x) => x.Name))}");
+                        }
+
+                        if (commandCount != iService.GetService<InteractionHandler>().CommandCount)
+                        {
+                            try
+                            {
+                                foreach (var item in interactionService.Modules.Where((x) => x.Preconditions.Any((x) => x is Interaction.Attribute.RequireGuildAttribute)))
+                                {
+                                    var guildId = ((Interaction.Attribute.RequireGuildAttribute)item.Preconditions.FirstOrDefault((x) => x is Interaction.Attribute.RequireGuildAttribute)).GuildId;
+                                    var guild = _client.GetGuild(guildId.Value);
+
+                                    if (guild == null)
+                                    {
+                                        Log.Warn($"{item.Name} 註冊失敗，伺服器 {guildId} 不存在");
+                                        continue;
+                                    }
+
+                                    var result = await interactionService.AddModulesToGuildAsync(guild, false, item);
+                                    Log.Info($"已在 {guild.Name}({guild.Id}) 註冊指令: {string.Join(", ", item.SlashCommands.Select((x) => x.Name))}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error(ex, "註冊伺服器專用Slash指令失敗");
+                            }
+
+                            await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
+                            File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));
+                            Log.Info("已註冊全球指令");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Log.Error("設定指令數量失敗，請確認檔案是否正常");
-                        Log.Error(ex.Message);
+                        Log.Error(ex, "設定指令數量失敗，請確認檔案是否正常");
                         if (File.Exists(GetDataFilePath("CommandCount.bin")))
                             File.Delete(GetDataFilePath("CommandCount.bin"));
 
                         isDisconnect = true;
                         return;
                     }
-
-#if DEBUG
-                    if (BotConfig.TestSlashCommandGuildId == 0 || _client.GetGuild(BotConfig.TestSlashCommandGuildId) == null)
-                        Log.Warn("未設定測試Slash指令的伺服器或伺服器不存在，略過");
-                    else
-                    {
-                        await iService.GetService<InteractionService>().RegisterCommandsToGuildAsync(BotConfig.TestSlashCommandGuildId);
-                        Log.Info("已註冊測試用指令");
-                    }
-#else
-                    await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
-                    File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));
-                    Log.Info("已註冊全球指令");
-#endif
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("註冊Slash指令失敗，關閉中...");
-                    Log.Error(ex.ToString());
+                    Log.Error(ex, "取得指令數量失敗");
                     isDisconnect = true;
                 }
-            };
-
-            _client.JoinedGuild += (guild) =>
+#endif
+            }
+            catch (Exception ex)
             {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.OwnerId}");
-                return Task.CompletedTask;
-            };
-
-            _client.Log += Log.LogMsg;
+                Log.Error("註冊Slash指令失敗，關閉中...");
+                Log.Error(ex.ToString());
+                isDisconnect = true;
+            }
             #endregion
 
-            #region Login
-            await _client.LoginAsync(TokenType.Bot, BotConfig.DiscordToken);
-            #endregion
-
-            await _client.StartAsync();
+            Log.Info("已初始化完成!");
 
             do { await Task.Delay(1000); }
             while (!isDisconnect);
+
 
             await _client.StopAsync();
         }

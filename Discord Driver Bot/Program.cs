@@ -356,38 +356,39 @@ namespace Discord_Driver_Bot
 
         public static void ChangeStatus()
         {
-            Action<string> setGame = new Action<string>((string text) => { _client.SetGameAsync($"!!h | {text}"); });
-
-            switch (updateStatus)
+            Task.Run(async () =>
             {
-                case UpdateStatus.Guild:
-                    setGame($"在 {_client.Guilds.Count} 個伺服器");
-                    updateStatus = UpdateStatus.Member;
-                    break;
-                case UpdateStatus.Member:
-                    try
-                    {
-                        int totleMemberCount = 0;
-                        foreach (var item in _client.Guilds) totleMemberCount += item.MemberCount;
-                        setGame($"服務 {totleMemberCount} 個成員");
-                        updateStatus = UpdateStatus.ShowBook;
-                    }
-                    catch (Exception) { updateStatus = UpdateStatus.ShowBook; ChangeStatus(); }
-                    break;
-                case UpdateStatus.ShowBook:
-                    setGame($"看了 {ListBookLogData.Count} 本本子");
-                    updateStatus = UpdateStatus.Info;
-                    break;
-                case UpdateStatus.Info:
-                    setGame("去看你的本本啦");
-                    updateStatus = UpdateStatus.ReadBook;
-                    break;
-                case UpdateStatus.ReadBook:
-                    BookData bookData = ListBookLogData[new Random().Next(0, ListBookLogData.Count)];
-                    setGame(bookData.Title + "\n" + bookData.URL.Replace("https://", ""));
-                    updateStatus = UpdateStatus.Guild;
-                    break;
-            }
+                switch (updateStatus)
+                {
+                    case UpdateStatus.Guild:
+                        await _client.SetCustomStatusAsync($"在 {_client.Guilds.Count} 個伺服器");
+                        updateStatus = UpdateStatus.Member;
+                        break;
+                    case UpdateStatus.Member:
+                        try
+                        {
+                            int totleMemberCount = 0;
+                            foreach (var item in _client.Guilds) totleMemberCount += item.MemberCount;
+                            await _client.SetCustomStatusAsync($"服務 {totleMemberCount} 個成員");
+                            updateStatus = UpdateStatus.ShowBook;
+                        }
+                        catch (Exception) { updateStatus = UpdateStatus.ShowBook; ChangeStatus(); }
+                        break;
+                    case UpdateStatus.ShowBook:
+                        await _client.SetCustomStatusAsync($"看了 {ListBookLogData.Count} 本本子");
+                        updateStatus = UpdateStatus.Info;
+                        break;
+                    case UpdateStatus.Info:
+                        await _client.SetCustomStatusAsync("去看你的本本啦");
+                        updateStatus = UpdateStatus.ReadBook;
+                        break;
+                    case UpdateStatus.ReadBook:
+                        BookData bookData = ListBookLogData[new Random().Next(0, ListBookLogData.Count)];
+                        await _client.SetCustomStatusAsync(bookData.Title + "\n" + bookData.URL.Replace("https://", ""));
+                        updateStatus = UpdateStatus.Guild;
+                        break;
+                }
+            });
         }
 
         public static string GetDataFilePath(string fileName)

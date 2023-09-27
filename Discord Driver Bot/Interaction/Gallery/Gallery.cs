@@ -212,7 +212,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
         {
             if (message == null ||
                message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
-               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url)))
+               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url.Split('?')[0])))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
                 return;
@@ -233,7 +233,7 @@ namespace Discord_Driver_Bot.Interaction.Gallery
         {
             if (message == null ||
                message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
-               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url)))
+               message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url.Split('?')[0])))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
                 return;

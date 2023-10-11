@@ -2,14 +2,14 @@
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
-COPY ["Discord Driver Bot/Discord Driver Bot.csproj", "Discord Driver Bot/"]
-RUN dotnet restore "Discord Driver Bot/Discord Driver Bot.csproj"
+COPY ["DiscordDriverBot/DiscordDriverBot.csproj", "DiscordDriverBot/"]
+RUN dotnet restore "DiscordDriverBot/DiscordDriverBot.csproj"
 COPY . .
-WORKDIR "/src/Discord Driver Bot"
-RUN dotnet build "Discord Driver Bot.csproj" -c Release -o /app/build
+WORKDIR "/src/DiscordDriverBot"
+RUN dotnet build "DiscordDriverBot.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "Discord Driver Bot.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "DiscordDriverBot.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
@@ -19,4 +19,4 @@ ENV TZ="Asia/Taipei"
 
 STOPSIGNAL SIGQUIT
 
-ENTRYPOINT ["dotnet", "Discord Driver Bot.dll"]
+ENTRYPOINT ["dotnet", "DiscordDriverBot.dll"]

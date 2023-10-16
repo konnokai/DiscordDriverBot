@@ -207,7 +207,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             }
         }
 
-        [MessageCommand("搜尋Ascii2D")]
+        [MessageCommand("搜尋 Ascii2D")]
         public async Task SauceAscii2DAsync(IMessage message)
         {
             if (message == null ||
@@ -228,7 +228,7 @@ namespace DiscordDriverBot.Interaction.Gallery
                 await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
         }
 
-        [MessageCommand("搜尋SauceNAO")]
+        [MessageCommand("搜尋 SauceNAO")]
         public async Task SauceSauceNAOAsync(IMessage message)
         {
             if (message == null ||

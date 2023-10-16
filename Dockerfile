@@ -11,9 +11,11 @@ RUN dotnet build "DiscordDriverBot.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "DiscordDriverBot.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
+FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+RUN apt-get update;apt-get install -y opencc;opencc --version
 
 ENV TZ="Asia/Taipei"
 

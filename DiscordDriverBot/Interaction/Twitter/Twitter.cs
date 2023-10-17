@@ -18,7 +18,7 @@ namespace DiscordDriverBot.Interaction.Twitter
         {
             await Context.Interaction.SendConfirmAsync("Working...", false, true);
 
-            var fixedMessage = message.CleanContent.Replace("twitter.com", "vxtwitter.com").Replace("x.com", "fixvx.com");
+            var fixedMessage = message.Content.Replace("twitter.com", "vxtwitter.com").Replace("x.com", "fixvx.com");
 
             await Context.Channel.SendMessageAsync(fixedMessage, allowedMentions: AllowedMentions.None);
         }

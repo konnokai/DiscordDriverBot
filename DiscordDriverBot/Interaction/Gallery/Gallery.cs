@@ -223,7 +223,7 @@ namespace DiscordDriverBot.Interaction.Gallery
 
             var result = await _service.SauceFromAscii2DAsync(url);
             if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
-                await FollowupAsync(embed: result.Embed);
+                await FollowupAsync(text: Format.Url("搜尋的圖片", message.GetJumpUrl()), embed: result.Embed);
             else
                 await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
         }
@@ -244,7 +244,7 @@ namespace DiscordDriverBot.Interaction.Gallery
 
             var result = await _service.SauceFromSauceNAOAsync(url);
             if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
-                await FollowupAsync(embed: result.Embed);
+                await FollowupAsync(text: Format.Url("搜尋的圖片", message.GetJumpUrl()), embed: result.Embed);
             else
                 await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
         }

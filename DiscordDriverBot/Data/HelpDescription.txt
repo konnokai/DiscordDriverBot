@@ -1,0 +1,14 @@
+﻿由 <@284989733229297664>(孤之界#1121) 製作，協助本本相關事項的機器人
+
+目前可輸入P網、熊貓(e-或ex都可)、Hitomi、Wancg跟NHentai網址
+Bot會自己去取得資料後輸出到Discord上
+(NHentai因最近啟用了CloudFlare的DDOS攻擊保護，小幫手暫時無法略過，故先關閉處理)
+
+或是幫你從Ascii2d&SauceNao搜尋圖片
+
+若網址前綴有#或<或||的話不會抓取資料
+且非Pixiv的網址，發言頻道需為NSFW才會運作
+
+[點此邀請BOT到新伺服器](https://discordapp.com/api/oauth2/authorize?client_id=535483720128266257&permissions=388161&scope=bot%20applications.commands)
+
+有新功能想加入或任何建議可以到推特私訊 [孤之界(@Jun112561)](https://twitter.com/Jun112561) 討論

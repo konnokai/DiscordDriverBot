@@ -13,13 +13,20 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 {
     static class Pixiv
     {
-        static HttpClient HttpClient = new HttpClient();
+        static readonly HttpClient _httpClient = new(new HttpClientHandler() 
+        {
+            ClientCertificateOptions = ClientCertificateOption.Manual,
+            ServerCertificateCustomValidationCallback = (httpRequestMessage, cert, cetChain, policyErrors) =>
+            {
+                return true;
+            }
+        });
 
-        static Regex regex = new Regex(@"artworks\/(?'Id'\d{0,9})");
+        static readonly Regex _regex = new(@"artworks\/(?'Id'\d{0,9})");
 
         public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
-            var reg = regex.Match(url);
+            var reg = _regex.Match(url);
             if (!reg.Success) return;
 
             if (!int.TryParse(reg.Groups["Id"].Value, out int id))
@@ -164,7 +171,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
         {
             try
             {
-                string result = await HttpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
+                string result = await _httpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}");
                 var illust = JsonConvert.DeserializeObject<IllustMetadata>(result);
 
                 if (illust == null)
@@ -196,7 +203,7 @@ namespace Discord_Driver_Bot.Gallery.Host.Pixiv
 
             try
             {
-                var postResult = await HttpClient.PostAsync("https://api.pixiv.cat/v1/generate", content);
+                var postResult = await _httpClient.PostAsync("https://api.pixiv.cat/v1/generate", content);
                 postResult.EnsureSuccessStatusCode();
 
                 PixivCat pixivCat = JsonConvert.DeserializeObject<PixivCat>(await postResult.Content.ReadAsStringAsync());

@@ -209,7 +209,7 @@ namespace DiscordDriverBot
                             Log.Info($"({BotConfig.TestSlashCommandGuildId}) 已移除測試指令，剩餘指令: {string.Join(", ", result.Select((x) => x.Name))}");
                         }
 
-                        if (commandCount != iService.GetService<InteractionHandler>().CommandCount)
+                        if (commandCount != serviceProvider.GetService<InteractionHandler>().CommandCount)
                         {
                             try
                             {
@@ -233,8 +233,8 @@ namespace DiscordDriverBot
                                 Log.Error(ex, "註冊伺服器專用 Slash 指令失敗");
                             }
 
-                            await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
-                            File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(iService.GetService<InteractionHandler>().CommandCount));
+                            await serviceProvider.GetService<InteractionService>().RegisterCommandsGloballyAsync();
+                            File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(serviceProvider.GetService<InteractionHandler>().CommandCount));
                             Log.Info("已註冊全球指令");
                         }
                     }

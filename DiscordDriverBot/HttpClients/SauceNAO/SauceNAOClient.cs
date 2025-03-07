@@ -18,9 +18,9 @@ namespace DiscordDriverBot.HttpClients.SauceNAO
         /// <value>The SauceNao API key.</value>
         public string ApiKey { get; set; }
 
-        public SauceNAOClient(HttpClient httpClient, BotConfig botConfig)
+        public SauceNAOClient(IHttpClientFactory httpClientFactory, BotConfig botConfig)
         {
-            Client = httpClient;
+            Client = httpClientFactory.CreateClient();
             ApiKey = botConfig.SauceNAOApiKey;
         }
 

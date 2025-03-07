@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="Ben.Demystifier" Version="0.4.1" />
     <PackageReference Include="Discord.Net" Version="3.17.1" />
+    <PackageReference Include="FlareSolverrSharp" Version="3.0.7" />
     <PackageReference Include="Html2Markdown" Version="5.1.0.703" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.74" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.10">

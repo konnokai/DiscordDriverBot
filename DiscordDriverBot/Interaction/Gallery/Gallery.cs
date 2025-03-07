@@ -3,17 +3,17 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordDriverBot.Interaction.Attribute;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace DiscordDriverBot.Interaction.Gallery
 {
-    [EnabledInDm(false)]
+    [CommandContextType(InteractionContextType.Guild)]
     [Group("gallery", "本本用")]
     public class Gallery : TopLevelModule<GalleryService>
     {
-
         public enum SearchHost
         {
             ExHentai,
@@ -134,7 +134,8 @@ namespace DiscordDriverBot.Interaction.Gallery
                 case SearchHost.ExHentai:
                     {
                         var result = await DiscordDriverBot.Gallery.SearchMulti.SearchExHentai(keyWord, page--);
-                        if (result == null) { await Context.Interaction.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果", true, true); return; };
+                        if (result == null) { await Context.Interaction.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果", true, true); return; }
+                        ;
 
                         await Context.SendPaginatedConfirmAsync(0, (row) =>
                         {
@@ -203,7 +204,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             catch (Exception ex)
             {
                 await Context.Interaction.SendErrorAsync("搜尋失敗", true);
-                Log.Error(ex.ToString());
+                Log.Error(ex.Demystify().ToString());
             }
         }
 
@@ -211,7 +212,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         public async Task SauceAscii2DAsync(IMessage message)
         {
             if (message == null ||
-               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
+               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content.Split('?')[0])) ||
                message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url.Split('?')[0])))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
@@ -232,7 +233,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         public async Task SauceSauceNAOAsync(IMessage message)
         {
             if (message == null ||
-               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content)) ||
+               message.Attachments.Count == 0 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Content.Split('?')[0])) ||
                message.Attachments.Count >= 1 && !_service.AllowedFileTypes.Any((x2) => x2 == Path.GetExtension(message.Attachments.First().Url.Split('?')[0])))
             {
                 await Context.Interaction.SendErrorAsync("不存在可搜尋的圖片");
@@ -280,8 +281,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             catch (Exception ex)
             {
                 await Context.Interaction.SendErrorAsync("解析失敗，未知的錯誤", true);
-                Log.Error(content);
-                Log.Error(ex.ToString());
+                Log.Error(ex.Demystify(), content);
             }
         }
     }

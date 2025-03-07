@@ -1,5 +1,8 @@
-﻿using HtmlAgilityPack;
+﻿using FlareSolverrSharp.Solvers;
+using HtmlAgilityPack;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Web;
 
@@ -8,22 +11,26 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
     //協助製作者Discord: `Yui__#5813`
     public class Ascii2DClient
     {
-        public HttpClient Client { get; private set; }
+        private readonly HttpClient _client;
+        private readonly BotConfig _botConfig;
 
-        public Ascii2DClient(HttpClient httpClient)
+        public Ascii2DClient(IHttpClientFactory httpClientFactory, BotConfig botConfig)
         {
-            httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            httpClient.DefaultRequestHeaders.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36 Edg/97.0.1072.62");
-            Client = httpClient;
+            _client = httpClientFactory.CreateClient();
+            _client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
+            _botConfig = botConfig;
         }
 
         public async IAsyncEnumerable<Result> FindAsync(string url)
         {
-            var encodedurl = HttpUtility.UrlEncode(url);
-            var queryurl = "https://ascii2d.net/search/url/" + encodedurl;
-            var rawhtml = await Client.GetStreamAsync(queryurl);
-            HtmlDocument HTMLdoc = new HtmlDocument();
-            HTMLdoc.Load(rawhtml, true);
+            var uri = new Uri("https://ascii2d.net/search/url/" + HttpUtility.UrlEncode(url));
+            var flareSolverr = new FlareSolverr(_botConfig.FlareSolverrApiUrl);
+            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+
+            var flareSolverrResponse = await flareSolverr.Solve(request);
+
+            HtmlDocument HTMLdoc = new();
+            HTMLdoc.LoadHtml(flareSolverrResponse.Solution.Response);
 
             var results = HTMLdoc.DocumentNode.SelectNodes("/html/body/div/div/div/div[@class='row item-box']");
             if (results == null)
@@ -31,7 +38,11 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
 
             foreach (var item in results)
             {
-                var info = item.SelectSingleNode("div[@class='col-xs-12 col-sm-12 col-md-8 col-xl-8 info-box']");
+                var info = item.ChildNodes.FirstOrDefault((x) => x.HasClass("info-box"));
+
+                if (info == null)
+                    continue;
+
                 var hash = info.SelectSingleNode("div[@class='hash']").InnerText;
                 var detail = info.SelectSingleNode("div[@class='detail-box gray-link']");
                 if (detail.ChildNodes.Count <= 1) continue;
@@ -39,10 +50,10 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                 string thumbnail = "";
                 try
                 {
-                    var imageBox = item.SelectSingleNode("div[@class='col-xs-12 col-sm-12 col-md-4 col-xl-4 text-xs-center image-box']").SelectSingleNode("img");
+                    var imageBox = item.ChildNodes.First((x) => x.HasClass("image-box")).SelectSingleNode("img");
                     thumbnail = "https://ascii2d.net" + imageBox.GetAttributeValue("src", "");
                 }
-                catch (System.Exception) { }
+                catch (Exception) { }
 
                 var strong = "";
                 try
@@ -51,7 +62,7 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                     if (strongNode != null)
                         strong = strongNode.InnerText + ": ";
                 }
-                catch (System.Exception) { }
+                catch (Exception) { }
 
                 string host = "Unknown";
                 string title = "";

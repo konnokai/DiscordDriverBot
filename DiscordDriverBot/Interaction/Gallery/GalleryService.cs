@@ -1,12 +1,13 @@
 ﻿using Discord;
 using DiscordDriverBot.HttpClients.Ascii2D;
 using DiscordDriverBot.HttpClients.SauceNAO;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using HtmlAgilityPack;
 
 namespace DiscordDriverBot.Interaction.Gallery
 {
@@ -32,15 +33,14 @@ namespace DiscordDriverBot.Interaction.Gallery
                 var req = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
                 req.EnsureSuccessStatusCode();
 
-                if (req.Content.Headers.ContentLength > 5242880)
+                if (req.Content.Headers.ContentLength > 10485760)
                 {
-                    return ("圖檔不可大於5MB", null);
+                    return ("圖檔不可大於 10 MB", null);
                 }
             }
             catch (Exception ex)
             {
-                Log.Error(url);
-                Log.Error(ex.ToString());
+                Log.Error(ex.Demystify(), url);
                 return ("搜尋失敗，未知的錯誤", null);
             }
 
@@ -71,8 +71,7 @@ namespace DiscordDriverBot.Interaction.Gallery
                     }
                     catch (Exception ex)
                     {
-                        Log.Error(url);
-                        Log.Error(ex.ToString());
+                        Log.Error(ex.Demystify(), url);
                         return ("搜尋失敗，未知的錯誤", null);
                     }
                 }
@@ -83,8 +82,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             }
             catch (Exception ex)
             {
-                Log.Error(url);
-                Log.Error(ex.ToString());
+                Log.Error(ex.Demystify(), url);
                 return ("搜尋失敗，未知的錯誤", null);
             }
         }
@@ -127,8 +125,8 @@ namespace DiscordDriverBot.Interaction.Gallery
                             }
                             catch (Exception ex)
                             {
-                                Log.Error(ex, "Danbooru解析失敗");
-                            }                           
+                                Log.Error(ex.Demystify(), "Danbooru 解析失敗");
+                            }
                         }
                     }
 
@@ -148,8 +146,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             }
             catch (Exception ex)
             {
-                Log.Error(url);
-                Log.Error(ex.ToString());
+                Log.Error(ex.Demystify(), url);
                 return ("搜尋失敗，未知的錯誤", null);
             }
         }

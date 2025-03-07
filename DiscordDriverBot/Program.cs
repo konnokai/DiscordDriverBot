@@ -45,7 +45,7 @@ namespace DiscordDriverBot
         public static DiscordSocketClient _client;
         public static SQLite.DriverContext db = new();
         static Timer timerUpdateStatus, timerCheckTranUpdate;
-        static IServiceProvider iService = null;
+        static IServiceProvider serviceProvider = null;
 
         public enum UpdateStatus { Guild, Member, ShowBook, Info, ReadBook }
 
@@ -106,7 +106,7 @@ namespace DiscordDriverBot
                 AlwaysResolveStickers = false,
                 FormatUsersInBidirectionalUnicode = false,
                 LogGatewayIntentWarnings = false,
-            }); ;
+            });
 
             #region 初始化Discord設定與事件
             _client.Log += Log.LogMsg;
@@ -123,7 +123,7 @@ namespace DiscordDriverBot
 
             _client.JoinedGuild += (guild) =>
             {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.OwnerId}");
+                Program.serviceProvider.GetService<DiscordWebhookClient>().SendMessageToDiscord($"加入 {guild.Name}({guild.Id})\n擁有者: {guild.OwnerId}");
                 return Task.CompletedTask;
             };
             #endregion
@@ -139,8 +139,8 @@ namespace DiscordDriverBot
 
             UptimeKumaClient.Init(BotConfig.UptimeKumaPushUrl, _client);
 
-            #region 初始化互動指令系統
-            var interactionServices = new ServiceCollection()
+            #region 初始化指令系統
+            var services = new ServiceCollection()
                 .AddHttpClient()
                 .AddSingleton(_client)
                 .AddSingleton(BotConfig)
@@ -150,43 +150,30 @@ namespace DiscordDriverBot
                     UseCompiledLambda = true,
                     EnableAutocompleteHandlers = false,
                     DefaultRunMode = Discord.Interactions.RunMode.Async
-                }));
-
-            interactionServices.AddHttpClient<Ascii2DClient>();
-            interactionServices.AddHttpClient<DiscordWebhookClient>();
-            interactionServices.AddHttpClient<SauceNAOClient>();
-            interactionServices.AddHttpClient();
-
-            interactionServices.LoadInteractionFrom(Assembly.GetAssembly(typeof(InteractionHandler)));
-            iService = interactionServices.BuildServiceProvider();
-            await iService.GetService<InteractionHandler>().InitializeAsync();
-            #endregion
-
-            #region 初始化一般指令系統
-            var commandServices = new ServiceCollection()
-                .AddHttpClient()
-                .AddSingleton(_client)
-                .AddSingleton(BotConfig)
+                }))
                 .AddSingleton(new CommandService(new CommandServiceConfig()
                 {
                     CaseSensitiveCommands = false,
                     DefaultRunMode = Discord.Commands.RunMode.Async
                 }));
 
-            commandServices.AddHttpClient<Ascii2DClient>();
-            commandServices.AddHttpClient<DiscordWebhookClient>();
-            commandServices.AddHttpClient<SauceNAOClient>();
-            commandServices.AddHttpClient();
+            services.AddHttpClient<DiscordWebhookClient>();
 
-            commandServices.LoadCommandFrom(Assembly.GetAssembly(typeof(CommandHandler)));
-            IServiceProvider service = commandServices.BuildServiceProvider();
-            await service.GetService<CommandHandler>().InitializeAsync();
+            services.AddScoped<Ascii2DClient>();
+            services.AddScoped<SauceNAOClient>();
+
+            services.LoadInteractionFrom(Assembly.GetAssembly(typeof(InteractionHandler)));
+            services.LoadCommandFrom(Assembly.GetAssembly(typeof(CommandHandler)));
+
+            serviceProvider = services.BuildServiceProvider();
+            await serviceProvider.GetService<InteractionHandler>().InitializeAsync();
+            await serviceProvider.GetService<CommandHandler>().InitializeAsync();
             #endregion
 
             #region 註冊互動指令
             try
             {
-                InteractionService interactionService = iService.GetService<InteractionService>();
+                InteractionService interactionService = serviceProvider.GetService<InteractionService>();
 #if DEBUG
                 if (BotConfig.TestSlashCommandGuildId == 0 || _client.GetGuild(BotConfig.TestSlashCommandGuildId) == null)
                     Log.Warn("未設定測試Slash指令的伺服器或伺服器不存在，略過");
@@ -341,7 +328,7 @@ namespace DiscordDriverBot
                         else
                         {
                             File.Move(GetDataFilePath("db.raw.json.tmp"), GetDataFilePath("db.raw.json"));
-                            iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("Ex 標籤翻譯失敗: 找不到翻譯後的 db.raw.json");
+                            serviceProvider.GetService<DiscordWebhookClient>().SendMessageToDiscord("Ex 標籤翻譯失敗: 找不到翻譯後的 db.raw.json");
                         }
                     }
 
@@ -353,7 +340,7 @@ namespace DiscordDriverBot
             catch (Exception ex)
             {
                 Log.Error(ex.Demystify(), "更新 Ex 標籤失敗");
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"更新 Ex 標籤失敗: {ex.Demystify()}");
+                serviceProvider.GetService<DiscordWebhookClient>().SendMessageToDiscord($"更新 Ex 標籤失敗: {ex.Demystify()}");
             }
 
             if (File.Exists(GetDataFilePath("db.raw.json")))
@@ -363,7 +350,7 @@ namespace DiscordDriverBot
             }
             else
             {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("更新 Ex 標籤失敗: db.raw.json 檔案不存在");
+                serviceProvider.GetService<DiscordWebhookClient>().SendMessageToDiscord("更新 Ex 標籤失敗: db.raw.json 檔案不存在");
             }
         }
 

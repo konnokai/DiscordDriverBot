@@ -11,11 +11,13 @@ using DiscordDriverBot.SQLite.Table;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Octokit;
+using Polly;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -37,17 +39,17 @@ namespace DiscordDriverBot
 
         public static IUser ApplicatonOwner { get; private set; } = null;
         public static UpdateStatus updateStatus = UpdateStatus.Guild;
-        public static Dictionary<string, string> eventParticipateDic = new Dictionary<string, string>();
-        public static Stopwatch stopWatch = new Stopwatch();
+        public static Dictionary<string, string> eventParticipateDic = new();
+        public static Stopwatch stopWatch = new();
         public static bool isConnect = false, isDisconnect = false;
         public static DiscordSocketClient _client;
-        public static SQLite.DriverContext db = new SQLite.DriverContext();
+        public static SQLite.DriverContext db = new();
         static Timer timerUpdateStatus, timerCheckTranUpdate;
         static IServiceProvider iService = null;
 
         public enum UpdateStatus { Guild, Member, ShowBook, Info, ReadBook }
 
-        static GitHubClient gitHubClient = new GitHubClient(new ProductHeaderValue("DiscordDriverBot"));
+        static GitHubClient gitHubClient = new(new ProductHeaderValue("DiscordDriverBot"));
         #endregion
 
         static void Main(string[] args)
@@ -63,8 +65,8 @@ namespace DiscordDriverBot
                 gitHubClient.Credentials = new Credentials(BotConfig.GitHubApiKey);
             EHentaiAPIClient = new EHentaiAPIClient();
 
-            timerUpdateStatus = new Timer((state) => ChangeStatus());
-            timerCheckTranUpdate = new Timer(TimerHandler);
+            timerUpdateStatus = new Timer(async (_) => await ChangeStatusAsync());
+            timerCheckTranUpdate = new Timer(async (_) => await TimerHandlerAsync());
 
             if (!Directory.Exists(Path.GetDirectoryName(GetDataFilePath(""))))
                 Directory.CreateDirectory(Path.GetDirectoryName(GetDataFilePath("")));
@@ -90,71 +92,6 @@ namespace DiscordDriverBot
 
             new Program().MainAsync().GetAwaiter().GetResult();
             #endregion
-        }
-
-        private static void TimerHandler(object state)
-        {
-            try
-            {
-                using (var db = new SQLite.DriverContext())
-                {
-                    var release = gitHubClient.Repository.Release.GetLatest("EhTagTranslation", "Database").Result; //https://github.com/EhTagTranslation/DatabaseReleases/releases
-                    var latest = release.CreatedAt.ToUnixTimeMilliseconds();
-                    DbBotConfig dateBase = db.DbBotConfig.First();
-
-                    if (dateBase.TagTranslationCreatedAt < latest)
-                    {
-                        var commit = gitHubClient.Repository.Commit.Get("EhTagTranslation", "DatabaseReleases", "master").Result; //https://github.com/EhTagTranslation/DatabaseReleases/releases
-                        var file = commit.Files.FirstOrDefault((x) => x.Filename == "db.raw.json");
-                        if (file == null) return;
-
-                        var data = iService.GetService<HttpClient>().GetByteArrayAsync(file.RawUrl).Result;
-                        bool isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-                        File.WriteAllBytes(GetDataFilePath(isLinux ? "db.raw.json.tmp" : "db.raw.json"), data);
-
-                        if (isLinux)
-                        {
-                            try
-                            {
-                                Process.Start("opencc", $"-i \"{GetDataFilePath("db.raw.json.tmp")}\" -o \"{GetDataFilePath("db.raw.json")}\" -c s2tw").WaitForExit();
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error(ex.ToString());
-                            }
-
-                            if (File.Exists(GetDataFilePath("db.raw.json")))
-                            {
-                                File.Delete(GetDataFilePath("db.raw.json.tmp"));
-                                Log.FormatColorWrite($"Ex標籤更新完成: `{release.Name}`", ConsoleColor.DarkCyan);
-                            }
-                            else
-                            {
-                                File.Move(GetDataFilePath("db.raw.json.tmp"), GetDataFilePath("db.raw.json"));
-                                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("Ex標籤翻譯失敗");
-                            }
-                        }
-
-                        dateBase.TagTranslationCreatedAt = latest;
-                        db.DbBotConfig.Update(dateBase);
-                        db.SaveChanges();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"更新Ex標籤失敗\n{ex}");
-            }
-
-            if (File.Exists(GetDataFilePath("db.raw.json")))
-            {
-                Gallery.Host.EHentai.TagTranslation.TranslationData =
-                    JsonConvert.DeserializeObject<Gallery.Host.EHentai.TagTranslation.DataBase>(File.ReadAllText(GetDataFilePath("db.raw.json"))).Data;
-            }
-            else
-            {
-                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("更新Ex標籤失敗");
-            }
         }
 
         public async Task MainAsync()
@@ -265,7 +202,7 @@ namespace DiscordDriverBot
                     }
                     catch (Exception ex)
                     {
-                        Log.Error("註冊伺服器專用Slash指令失敗");
+                        Log.Error("註冊伺服器專用 Slash 指令失敗");
                         Log.Error(ex.ToString());
                     }
                 }
@@ -306,7 +243,7 @@ namespace DiscordDriverBot
                             }
                             catch (Exception ex)
                             {
-                                Log.Error(ex, "註冊伺服器專用Slash指令失敗");
+                                Log.Error(ex, "註冊伺服器專用 Slash 指令失敗");
                             }
 
                             await iService.GetService<InteractionService>().RegisterCommandsGloballyAsync();
@@ -344,7 +281,6 @@ namespace DiscordDriverBot
             do { await Task.Delay(1000); }
             while (!isDisconnect);
 
-
             await _client.StopAsync();
         }
 
@@ -354,41 +290,115 @@ namespace DiscordDriverBot
             e.Cancel = true;
         }
 
-        public static void ChangeStatus()
+        private static async Task TimerHandlerAsync()
         {
-            Task.Run(async () =>
+            try
             {
-                switch (updateStatus)
+                using var httpClient = new HttpClient();
+                using var db = new SQLite.DriverContext();
+                var release = await gitHubClient.Repository.Release.GetLatest("EhTagTranslation", "Database"); // https://github.com/EhTagTranslation/DatabaseReleases/releases
+                var latest = release.CreatedAt.ToUnixTimeMilliseconds();
+                DbBotConfig dateBase = db.DbBotConfig.First();
+
+                if (dateBase.TagTranslationCreatedAt < latest)
                 {
-                    case UpdateStatus.Guild:
-                        await _client.SetCustomStatusAsync($"在 {_client.Guilds.Count} 個伺服器");
-                        updateStatus = UpdateStatus.Member;
-                        break;
-                    case UpdateStatus.Member:
+                    var file = release.Assets.FirstOrDefault((x) => x.Name == "db.raw.json");
+                    if (file == null) return;
+
+                    var rawJson = await Policy.Handle<HttpRequestException>()
+                       .Or<WebException>((ex) => ex.Message.Contains("unavailable")) // Resource temporarily unavailable
+                       .Or<TaskCanceledException>()
+                       .WaitAndRetryAsync(3, (retryAttempt) =>
+                       {
+                           var timeSpan = TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+                           Log.Warn($"EhTagTranslation: db.raw.json GET 失敗，將於 {timeSpan.TotalSeconds} 秒後重試 (第 {retryAttempt} 次重試)");
+                           return timeSpan;
+                       })
+                       .ExecuteAsync(async () =>
+                       {
+                           return await httpClient.GetStringAsync(file.BrowserDownloadUrl);
+                       });
+
+                    bool isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+                    File.WriteAllText(GetDataFilePath(isLinux ? "db.raw.json.tmp" : "db.raw.json"), rawJson);
+
+                    if (isLinux)
+                    {
                         try
                         {
-                            int totleMemberCount = 0;
-                            foreach (var item in _client.Guilds) totleMemberCount += item.MemberCount;
-                            await _client.SetCustomStatusAsync($"服務 {totleMemberCount} 個成員");
-                            updateStatus = UpdateStatus.ShowBook;
+                            Process.Start("opencc", $"-i \"{GetDataFilePath("db.raw.json.tmp")}\" -o \"{GetDataFilePath("db.raw.json")}\" -c s2tw").WaitForExit();
                         }
-                        catch (Exception) { updateStatus = UpdateStatus.ShowBook; ChangeStatus(); }
-                        break;
-                    case UpdateStatus.ShowBook:
-                        await _client.SetCustomStatusAsync($"看了 {ListBookLogData.Count} 本本子");
-                        updateStatus = UpdateStatus.Info;
-                        break;
-                    case UpdateStatus.Info:
-                        await _client.SetCustomStatusAsync("去看你的本本啦");
-                        updateStatus = UpdateStatus.ReadBook;
-                        break;
-                    case UpdateStatus.ReadBook:
-                        BookData bookData = ListBookLogData[new Random().Next(0, ListBookLogData.Count)];
-                        await _client.SetCustomStatusAsync(bookData.Title + "\n" + bookData.URL.Replace("https://", ""));
-                        updateStatus = UpdateStatus.Guild;
-                        break;
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex.Demystify(), "opencc 執行失敗，請確認是否有安裝 opencc");
+                        }
+
+                        if (File.Exists(GetDataFilePath("db.raw.json")))
+                        {
+                            File.Delete(GetDataFilePath("db.raw.json.tmp"));
+                            Log.FormatColorWrite($"Ex 標籤更新完成: `{release.Name}`", ConsoleColor.DarkCyan);
+                        }
+                        else
+                        {
+                            File.Move(GetDataFilePath("db.raw.json.tmp"), GetDataFilePath("db.raw.json"));
+                            iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("Ex 標籤翻譯失敗: 找不到翻譯後的 db.raw.json");
+                        }
+                    }
+
+                    dateBase.TagTranslationCreatedAt = latest;
+                    db.DbBotConfig.Update(dateBase);
+                    db.SaveChanges();
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Demystify(), "更新 Ex 標籤失敗");
+                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord($"更新 Ex 標籤失敗: {ex.Demystify()}");
+            }
+
+            if (File.Exists(GetDataFilePath("db.raw.json")))
+            {
+                Gallery.Host.EHentai.TagTranslation.TranslationData =
+                    JsonConvert.DeserializeObject<Gallery.Host.EHentai.TagTranslation.DataBase>(File.ReadAllText(GetDataFilePath("db.raw.json"))).Data;
+            }
+            else
+            {
+                iService.GetService<DiscordWebhookClient>().SendMessageToDiscord("更新 Ex 標籤失敗: db.raw.json 檔案不存在");
+            }
+        }
+
+        public static async Task ChangeStatusAsync()
+        {
+            switch (updateStatus)
+            {
+                case UpdateStatus.Guild:
+                    await _client.SetCustomStatusAsync($"在 {_client.Guilds.Count} 個伺服器");
+                    updateStatus = UpdateStatus.Member;
+                    break;
+                case UpdateStatus.Member:
+                    try
+                    {
+                        int totleMemberCount = 0;
+                        foreach (var item in _client.Guilds) totleMemberCount += item.MemberCount;
+                        await _client.SetCustomStatusAsync($"服務 {totleMemberCount} 個成員");
+                        updateStatus = UpdateStatus.ShowBook;
+                    }
+                    catch (Exception) { updateStatus = UpdateStatus.ShowBook; await ChangeStatusAsync(); }
+                    break;
+                case UpdateStatus.ShowBook:
+                    await _client.SetCustomStatusAsync($"看了 {ListBookLogData.Count} 本本子");
+                    updateStatus = UpdateStatus.Info;
+                    break;
+                case UpdateStatus.Info:
+                    await _client.SetCustomStatusAsync("去看你的本本啦");
+                    updateStatus = UpdateStatus.ReadBook;
+                    break;
+                case UpdateStatus.ReadBook:
+                    BookData bookData = ListBookLogData[new Random().Next(0, ListBookLogData.Count)];
+                    await _client.SetCustomStatusAsync(bookData.Title + "\n" + bookData.URL.Replace("https://", ""));
+                    updateStatus = UpdateStatus.Guild;
+                    break;
+            }
         }
 
         public static string GetDataFilePath(string fileName)

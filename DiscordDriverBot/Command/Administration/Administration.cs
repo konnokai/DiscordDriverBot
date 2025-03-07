@@ -77,7 +77,7 @@ namespace DiscordDriverBot.Command.Administration
                     await Context.Channel.SendErrorAsync(string.Format("找不到 {0} 狀態", stats));
                     return;
             }
-            Program.ChangeStatus();
+            await Program.ChangeStatusAsync();
             return;
         }
 

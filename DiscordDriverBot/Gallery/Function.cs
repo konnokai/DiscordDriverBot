@@ -1,7 +1,7 @@
 ﻿using Discord;
 using System;
 using System.Linq;
-using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -102,8 +102,8 @@ namespace DiscordDriverBot.Gallery
             {
                 try
                 {
-                    HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
-                    httpWebRequest.GetResponse().GetResponseStream();
+                    using var httpClient = new HttpClient();
+                    httpClient.Send(new HttpRequestMessage(HttpMethod.Head, url)).EnsureSuccessStatusCode();
                     return true;
                 }
                 catch (Exception) { }

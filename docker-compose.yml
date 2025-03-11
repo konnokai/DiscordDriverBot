@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   discord-driver-bot:
     container_name: discord-driver-bot

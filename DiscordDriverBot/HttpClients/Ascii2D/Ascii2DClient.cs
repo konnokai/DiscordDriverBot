@@ -11,13 +11,10 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
     //協助製作者Discord: `Yui__#5813`
     public class Ascii2DClient
     {
-        private readonly HttpClient _client;
         private readonly BotConfig _botConfig;
 
-        public Ascii2DClient(IHttpClientFactory httpClientFactory, BotConfig botConfig)
+        public Ascii2DClient(BotConfig botConfig)
         {
-            _client = httpClientFactory.CreateClient();
-            _client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
             _botConfig = botConfig;
         }
 
@@ -26,6 +23,8 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
             var uri = new Uri("https://ascii2d.net/search/url/" + HttpUtility.UrlEncode(url));
             var flareSolverr = new FlareSolverr(_botConfig.FlareSolverrApiUrl);
             var request = new HttpRequestMessage(HttpMethod.Get, uri);
+
+            flareSolverr.MaxTimeout = 120 * 1000;
 
             var flareSolverrResponse = await flareSolverr.Solve(request);
 

@@ -26,7 +26,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         }
 
         public async Task<(string ErrorMessage, Embed Embed)> SauceFromAscii2DAsync(string url)
-        {
+        {            
             try
             {
                 using var client = _httpClientFactory.CreateClient();

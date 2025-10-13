@@ -2,6 +2,7 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -37,7 +38,7 @@ namespace DiscordDriverBot.Command
             var guild = message.GetGuild();
 
             int argPos = 0;
-            if (message.HasStringPrefix($"<@{Program._client.CurrentUser.Id}>", ref argPos) || message.HasStringPrefix($"<@!{Program._client.CurrentUser.Id}>", ref argPos))
+            if (message.HasStringPrefix($"!!", ref argPos) || message.HasStringPrefix($"<@{Program._client.CurrentUser.Id}>", ref argPos) || message.HasStringPrefix($"<@!{Program._client.CurrentUser.Id}>", ref argPos))
             {
                 var context = new SocketCommandContext(_client, message);
 
@@ -72,6 +73,7 @@ namespace DiscordDriverBot.Command
                     catch (Exception ex)
                     {
                         await message.Channel.SendErrorAsync(ex.Message);
+                        Log.Error(ex.Demystify(), $"{context.Message.Channel} / {message.Author}: {message.Content}");
                     }
                 }
             }
@@ -86,11 +88,11 @@ namespace DiscordDriverBot.Command
                 try
                 {
                     await HandelMessageAsync(message);
-
                 }
                 catch (Exception ex)
                 {
                     await message.Channel.SendErrorAsync(ex.Message);
+                    Log.Error(ex.Demystify(), $"{message.Channel} / {message.Author}: {message.Content}");
                 }
 #endif
             }
@@ -103,7 +105,7 @@ namespace DiscordDriverBot.Command
             ITextChannel channel = message.Channel as ITextChannel;
             IGuildUser guildUser = message.Author as IGuildUser;
 
-            foreach (string item in content.Split(new char[] { '\n' }))
+            foreach (string item in content.Split(['\n']))
             {
                 try
                 {

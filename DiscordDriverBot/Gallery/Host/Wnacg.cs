@@ -15,20 +15,20 @@ namespace DiscordDriverBot.Gallery.Host
         {
             if (url.Contains("?ctl"))
             {
-                var array = HttpUtility.ParseQueryString(url.Split(new char[] { '?' })[1]);
+                var array = HttpUtility.ParseQueryString(url.Split(['?'])[1]);
                 url = $"{array.Get("ctl")}-{array.Get("act")}-{array.GetKey(2)}-{array.Get(array.GetKey(2))}";
             }
-            string[] urlSplit = url.Split(new char[] { '?' })[0].Split(new char[] { '-' });
-            string ID = urlSplit[3].Split(new string[] { ".html" }, StringSplitOptions.RemoveEmptyEntries)[0];
+            string[] urlSplit = url.Split(['?'])[0].Split(['-']);
+            string ID = urlSplit[3].Split([".html"], StringSplitOptions.RemoveEmptyEntries)[0];
 
             if (urlSplit[2] == "aid")
             {
                 if (!Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID)))
                 {
                     if (interactionContext == null)
-                        await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                        await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(['.'])[0]} 不存在本子");
                     else
-                        await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                        await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(['.'])[0]} 不存在本子", ephemeral: true);
                     return;
                 }
             }
@@ -39,7 +39,7 @@ namespace DiscordDriverBot.Gallery.Host
                 if (urlSplit[1] == "view")
                 {
                     htmlDocumentNode = htmlWeb.Load(string.Format("https://www.wnacg.com/photos-view-id-{0}.html", ID)).DocumentNode.Descendants();
-                    urlSplit = htmlDocumentNode.First((x) => x.Name == "link" && x.Attributes.Any((x2) => x2.Name == "rel" && x2.Value == "alternate")).Attributes["href"].Value.Split(new char[] { '-' });
+                    urlSplit = htmlDocumentNode.First((x) => x.Name == "link" && x.Attributes.Any((x2) => x2.Name == "rel" && x2.Value == "alternate")).Attributes["href"].Value.Split(['-']);
                     ID = urlSplit[3];
                 }
                 else if (urlSplit[2] == "page") ID = urlSplit[5];
@@ -72,20 +72,20 @@ namespace DiscordDriverBot.Gallery.Host
                                 {
                                     if (item2.ParentNode.ParentNode.HasClass("asTB"))
                                     {
-                                        string[] temp = item2.InnerText.Split(new char[] { '：' });
-                                        dicTag.Add(temp[0] + ":", new List<string>() { temp[1] });
+                                        string[] temp = item2.InnerText.Split(['：']);
+                                        dicTag.Add(temp[0] + ":", [temp[1]]);
                                     }
                                 }
                                 break;
                             case "div":
                                 {
-                                    List<string> list = new List<string>(item2.Descendants().Where((x) => x.Name == "a" && x.HasClass("tagshow")).Select((x) => x.InnerText.Trim()));
+                                    List<string> list = new(item2.Descendants().Where((x) => x.Name == "a" && x.HasClass("tagshow")).Select((x) => x.InnerText.Trim()));
                                     if (list.Count > 0) dicTag.Add("標籤:", list);
                                 }
                                 break;
                             case "p":
                                 {
-                                    string[] temp = item2.InnerText.Split(new char[] { '：' });
+                                    string[] temp = item2.InnerText.Split(['：']);
                                     description = temp[1] != "" ? temp[1] : "這個上傳者很懶，甚麼都沒打";
                                 }
                                 break;
@@ -134,7 +134,7 @@ namespace DiscordDriverBot.Gallery.Host
                 if (ex.Message.Contains("50013"))
                     await user.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
-                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言&嵌入連結權限\n請向管理員要求提供Bot權限")
+                        .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了 Bot 的功能，但 Bot 無讀取 & 發言 & 嵌入連結權限\n請向管理員要求提供 Bot 權限")
                         .Build());
                 else
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
@@ -145,6 +145,16 @@ namespace DiscordDriverBot.Gallery.Host
                         .Build());
 #endif
                 Log.Error(ex.ToString());
+
+                EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
+                    .WithErrorColor()
+                    .WithTitle("發生錯誤")
+                    .WithDescription("發生未知的錯誤，已回報給 Bot 擁有者處理");
+
+                if (interactionContext == null)
+                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
+                else
+                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
             }
         }
     }

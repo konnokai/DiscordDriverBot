@@ -4,9 +4,12 @@ using Discord.WebSocket;
 using DiscordDriverBot.Gallery;
 using DiscordDriverBot.Interaction.Attribute;
 using System;
+using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DiscordDriverBot.Interaction.Gallery
@@ -281,6 +284,80 @@ namespace DiscordDriverBot.Interaction.Gallery
                 await Context.Interaction.SendErrorAsync("解析失敗，未知的錯誤", true, true);
                 Log.Error(ex.Demystify(), content);
             }
+        }
+
+        [MessageCommand("反推圖片來源")]
+        public async Task DecodeImageFileNameAsync(IMessage message)
+        {
+            string result = BuildFileNameResult(message.Attachments.FirstOrDefault()?.Filename) ?? BuildFileNameResult(message.Content);
+            if (result == null)
+            {
+                await Context.Interaction.SendErrorAsync("附件檔名或訊息文字反推不出來源");
+                return;
+            }
+
+            await Context.Interaction.RespondAsync(result, allowedMentions: AllowedMentions.None);
+        }
+
+        public static string BuildFileNameResult(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName)) return null;
+
+            string name = fileName.Trim();
+            // 輸入可能是完整網址或帶 :orig、副檔名，先還原成純檔名
+            int cut = name.IndexOfAny(new[] { '?', '#' });
+            if (cut >= 0) name = name.Substring(0, cut);
+            name = name.Substring(name.LastIndexOf('/') + 1);
+            name = Regex.Replace(name, @":[a-z]+\z", "", RegexOptions.IgnoreCase);
+            name = Regex.Replace(name, @"\.[A-Za-z0-9]+\z", "");
+
+            // Twitter Media Downloader：{帳號}-{推文 ID}-{序號}
+            var tweet = Regex.Match(name, @"^(?<user>[A-Za-z0-9_]{1,15})-(?<id>[0-9]{17,19})(?:-[0-9]+)?\z");
+            if (tweet.Success)
+            {
+                string user = tweet.Groups["user"].Value;
+                string profile = $"https://x.com/{user}";
+                return $"檔名：`{name}`\n" +
+                       $"帳號：{Format.EscapeUrl(profile)}\n" +
+                       $"推文：{Format.EscapeUrl($"{profile}/status/{tweet.Groups["id"].Value}")}";
+            }
+
+            // Pixiv 下載器：{作品 ID}_p{頁碼}[_{尺寸}]
+            var pixiv = Regex.Match(name, @"^(?<id>[0-9]{1,9})_p[0-9]+(?:_[A-Za-z0-9]+)?\z");
+            if (pixiv.Success)
+            {
+                string artworkUrl = GalleryUrl.GodSayUrl(BookHost.Pixiv, pixiv.Groups["id"].Value);
+                return artworkUrl == null ? null : $"檔名：`{name}`\n作品：{Format.EscapeUrl(artworkUrl)}";
+            }
+
+            if (!Regex.IsMatch(name, @"^[A-Za-z0-9_-]{11,}\z")) return null;
+
+            // X 把 8 bytes snowflake 編成 base64url，取前 11 碼就夠還原
+            var encoded = name.Substring(0, 11).Replace('-', '+').Replace('_', '/') + "=";
+            byte[] bytes;
+            try { bytes = Convert.FromBase64String(encoded); }
+            catch (FormatException) { return null; }
+            if (bytes.Length < 8) return null;
+
+            ulong id = BinaryPrimitives.ReadUInt64BigEndian(bytes);
+            long ms = (long)(id >> 22) + 1288834974657L;
+            if (ms < 1288834974657L || ms > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 86400000L) return null;
+
+            const long window = 1800000L;
+            long start = ms / window * window;
+            long end = start + window;
+            string ToUtcToken(long t) => DateTimeOffset.FromUnixTimeMilliseconds(t).UtcDateTime.ToString("yyyy-MM-dd_HH:mm:ss", CultureInfo.InvariantCulture) + "_UTC";
+            string keyword = $"since:{ToUtcToken(start)} until:{ToUtcToken(end)} filter:images";
+            string url = "https://x.com/search?q=" + Uri.EscapeDataString(keyword) + "&src=typed_query";
+
+            var utc = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime;
+            var tw = utc.AddHours(8);
+            string utcText = utc.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            string twText = tw.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            return $"檔名：`{name}`\n" +
+                   $"上傳時間：{utcText} UTC（台灣 {twText}）\n" +
+                   $"搜尋關鍵字：`{keyword}`\n" +
+                   Format.Url("開啟 X 搜尋頁", Format.EscapeUrl(url));
         }
     }
 }

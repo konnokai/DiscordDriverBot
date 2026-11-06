@@ -64,40 +64,9 @@ namespace DiscordDriverBot.Gallery.Host
                 }
                 else
                 {
-                    dicTag = new Dictionary<string, List<string>>();
                     htmlDocumentNode = htmlWeb.Load(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID)).DocumentNode.Descendants();
-
-                    title = HttpUtility.HtmlDecode(htmlDocumentNode.First((x) => (x.ParentNode.Name == "div" && x.ParentNode.Id == "bodywrap" && x.Name == "h2")).InnerText);
-                    thumbnailURL = "https://" + htmlDocumentNode.First((x) => (x.ParentNode.Name == "div" && x.ParentNode.HasClass("uwthumb") && x.Name == "img")).GetAttributeValue("src", "").TrimStart('/');
+                    (title, thumbnailURL, description, dicTag) = ParseIndexPage(htmlDocumentNode);
                     bookName = title.FormatBookName();
-
-                    foreach (HtmlNode item2 in htmlDocumentNode.First((x) => x.Name == "div" && x.HasClass("uwconn")).Descendants())
-                    {
-                        switch (item2.Name)
-                        {
-                            case "label":
-                                {
-                                    if (item2.ParentNode.ParentNode.HasClass("asTB"))
-                                    {
-                                        string[] temp = item2.InnerText.Split(['：']);
-                                        dicTag.Add(temp[0] + ":", [temp[1]]);
-                                    }
-                                }
-                                break;
-                            case "div":
-                                {
-                                    List<string> list = new(item2.Descendants().Where((x) => x.Name == "a" && x.HasClass("tagshow")).Select((x) => x.InnerText.Trim()));
-                                    if (list.Count > 0) dicTag.Add("標籤:", list);
-                                }
-                                break;
-                            case "p":
-                                {
-                                    string[] temp = item2.InnerText.Split(['：']);
-                                    description = temp[1] != "" ? temp[1] : "這個上傳者很懶，甚麼都沒打";
-                                }
-                                break;
-                        }
-                    }
 
                     new SQLite.Table.BookData(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID), title, description, thumbnailURL, dicTag).InsertNewData();
                 }
@@ -163,6 +132,52 @@ namespace DiscordDriverBot.Gallery.Host
 
                 return false;
             }
+        }
+
+        public static (string Title, string ThumbnailUrl, string Description, Dictionary<string, List<string>> Tags) ParseIndexPage(IEnumerable<HtmlNode> htmlDocumentNode)
+        {
+            List<HtmlNode> nodes = htmlDocumentNode.ToList();
+            Dictionary<string, List<string>> dicTag = new();
+            string description = "";
+
+            string title = HttpUtility.HtmlDecode(nodes.First((x) => (x.ParentNode.Name == "div" && x.ParentNode.Id == "bodywrap" && x.Name == "h2")).InnerText);
+            string thumbnailURL = "https://" + nodes.First((x) => (x.ParentNode.Name == "div" && x.ParentNode.HasClass("uwthumb") && x.Name == "img")).GetAttributeValue("src", "").TrimStart('/');
+
+            foreach (HtmlNode item in nodes.First((x) => x.Name == "div" && x.HasClass("uwconn")).Descendants())
+            {
+                switch (item.Name)
+                {
+                    case "label":
+                        {
+                            // 欄位寫成「分類：同人誌／漢化」，沒冒號的 label 不是欄位
+                            if (item.ParentNode.ParentNode.HasClass("asTB"))
+                            {
+                                string text = item.InnerText;
+                                int colon = text.IndexOf('：');
+                                if (colon >= 0) dicTag.Add(text[..colon] + ":", [text[(colon + 1)..]]);
+                            }
+                        }
+                        break;
+                    case "div":
+                        {
+                            List<string> list = new(item.Descendants().Where((x) => x.Name == "a" && x.HasClass("tagshow")).Select((x) => x.InnerText.Trim()));
+                            if (list.Count > 0) dicTag.Add("標籤:", list);
+                        }
+                        break;
+                    case "p":
+                        {
+                            // rm-state 這類頁面自己用的空 <p> 沒冒號，不是簡介
+                            string text = item.InnerText;
+                            int colon = text.IndexOf('：');
+                            if (colon < 0) break;
+                            description = text[(colon + 1)..];
+                            if (description == "") description = "這個上傳者很懶，甚麼都沒打";
+                        }
+                        break;
+                }
+            }
+
+            return (title, thumbnailURL, description, dicTag);
         }
     }
 }

@@ -1,1 +1,4 @@
 Data
+**/bin
+**/obj
+.env

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DiscordDriverBot.Command.Administration
@@ -13,6 +14,9 @@ namespace DiscordDriverBot.Command.Administration
     {
         private readonly AdministrationService _admin;
         private readonly DiscordSocketClient _client;
+        private static readonly Regex WnacgKey = new(@"^https://www\.wnacg\.com/photos-index-aid-(?<id>[0-9]{1,9})\.html$", RegexOptions.IgnoreCase);
+        private static readonly Regex WnacgDirtyId = new(@"aid-(?<id>[0-9]{1,9})(?=\.)", RegexOptions.IgnoreCase);
+
         public Administration(AdministrationService administraionServer, DiscordSocketClient discordSocketClient)
         {
             _admin = administraionServer;
@@ -168,6 +172,90 @@ namespace DiscordDriverBot.Command.Administration
                 }
             }
             catch (Exception ex) { Log.Error(ex.ToString()); await ReplyAsync(ex.Message); }
+        }
+
+        [Command("ClearWnacgData")]
+        [Summary("整理 Wnacg 髒資料（修復可救回的 key、刪除重複與無效資料）")]
+        [Alias("CWD")]
+        [RequireOwner]
+        public async Task ClearWnacgDataAsync()
+        {
+            try
+            {
+                using var db = new SQLite.DriverContext();
+                var rows = db.BookData.Where((x) => x.URL.Contains("wnacg")).OrderBy((x) => x.Id).ToList();
+
+                var toDelete = new List<SQLite.Table.BookData>();
+                var toRepair = new List<(SQLite.Table.BookData Row, string Url)>();
+
+                // 先找出已經是標準 key 的 id，髒資料只要跟它重複就刪掉，不用改寫
+                var canonicalIds = new HashSet<string>();
+                foreach (var row in rows)
+                {
+                    Match match = WnacgKey.Match(row.URL);
+                    string id = match.Success ? NormalizeWnacgId(match.Groups["id"].Value) : null;
+                    if (id != null && row.URL == WnacgUrl(id)) canonicalIds.Add(id);
+                }
+
+                var keptIds = new HashSet<string>();
+                foreach (var row in rows)
+                {
+                    Match match = WnacgKey.Match(row.URL);
+                    string id = match.Success ? NormalizeWnacgId(match.Groups["id"].Value) : null;
+                    bool canonical = id != null && row.URL == WnacgUrl(id);
+
+                    // 前導 0 之類的寫法不算乾淨，要改成標準 key 才查得到
+                    if (!canonical)
+                    {
+                        match = WnacgDirtyId.Match(row.URL);
+                        id = match.Success ? NormalizeWnacgId(match.Groups["id"].Value) : null;
+
+                        if (id != null && canonicalIds.Contains(id))
+                        {
+                            toDelete.Add(row);
+                            continue;
+                        }
+                    }
+
+                    string url = id == null ? null : WnacgUrl(id);
+                    if (url == null || !keptIds.Add(id))
+                    {
+                        toDelete.Add(row);
+                        continue;
+                    }
+
+                    if (!canonical) toRepair.Add((row, url));
+                }
+
+                if (toDelete.Count == 0 && toRepair.Count == 0)
+                {
+                    await Context.Channel.SendConfirmAsync("沒有需要整理的 Wnacg 資料");
+                    return;
+                }
+
+                db.BookData.RemoveRange(toDelete);
+                foreach (var (row, url) in toRepair) row.URL = url;
+                db.SaveChanges();
+
+                Program.ListBookLogData = db.BookData.ToList();
+
+                await Context.Channel.SendConfirmAsync($"已修復 {toRepair.Count} 筆、刪除 {toDelete.Count} 筆 Wnacg 髒資料");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "整理 Wnacg 資料失敗");
+                await Context.Channel.SendErrorAsync("整理 Wnacg 資料失敗，請查看 Log");
+            }
+        }
+
+        private static string NormalizeWnacgId(string raw)
+        {
+            return long.TryParse(raw, out long id) && id > 0 ? id.ToString() : null;
+        }
+
+        private static string WnacgUrl(string id)
+        {
+            return $"https://www.wnacg.com/photos-index-aid-{id}.html";
         }
 
         [Command("redb")]

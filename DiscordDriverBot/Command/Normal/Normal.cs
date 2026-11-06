@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using DiscordDriverBot.Gallery;
 using DiscordDriverBot.HttpClients.Ascii2D;
 using DiscordDriverBot.HttpClients.SauceNAO;
 using System;
@@ -29,10 +30,11 @@ namespace DiscordDriverBot.Command.Normal
         }
 
         [Command("AutoGodSay")]
+        [RequireContext(ContextType.Guild)]
         [Summary("依據輸入的字數來判斷網站並顯示神所說的句子" +
             "\n字數自動判斷的網站如下" +
-            "\n5為Wnacg，6為NHentai，7為Hitomi" +
-            "\n8為Pixiv，18跟19為ExHentai" +
+            "\n5-6為Wnacg，7為Hitomi" +
+            "\n8-9為Pixiv，gid/token為ExHentai" +
             "\n\n例:" +
             "\n!!AutoGodSay 260600" +
             "\n!!AutoGodSay 74861170" +
@@ -43,45 +45,39 @@ namespace DiscordDriverBot.Command.Normal
         {
             if (godSay == null) { await ReplyAsync(Context.User.Mention + " 沒有神的語言"); return; }
 
-            string[] list = godSay.Split(new char[] { ' ' });
-            if (list.Length > 5 && Context.Message.Author != Program.ApplicatonOwner)
+            string[] list = godSay.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (list.Length > 5 && Context.Message.Author.Id != Program.ApplicatonOwner.Id)
             { await ReplyAsync(Context.User.Mention + " 超過五本"); return; }
 
             foreach (var item in list)
             {
-                string host;
-
-                switch (item.Length)
+                BookHost host = GalleryUrl.GuessGodSayHost(item);
+                if (host == BookHost.None)
                 {
-                    case 5:
-                        host = "w";
-                        break;
-                    case 6:
-                        host = "n";
-                        break;
-                    case 7:
-                        host = "h";
-                        break;
-                    case 8:
-                        host = "p";
-                        break;
-                    case 18:
-                    case 19:
-                        host = "ex";
-                        break;
-                    default:
-                        await Context.Channel.SendErrorAsync($"我不知道 {item} 所代表的網站，請使用 `!!godsay 本子網址縮寫 神的語言`");
-                        return;
+                    await Context.Channel.SendErrorAsync($"我不知道 {item} 所代表的網站，請使用 `!!godsay 本子網址縮寫 神的語言`");
+                    return;
                 }
 
-                if (host != "")
+                string url = GalleryUrl.GodSayUrl(host, item);
+                if (url == null || !GalleryUrl.TryParse(url, out GalleryLink link))
                 {
-                    await GodSayAsync(host, item);
+                    await Context.Channel.SendErrorAsync($"網址格式錯誤: {item}");
+                    return;
+                }
+
+                GalleryShowResult result = await Gallery.Function.ShowGalleryInfoAsync(link, Context.Guild, Context.Channel, Context.User);
+                if (result == GalleryShowResult.Shown)
+                    SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                else if (result == GalleryShowResult.Blocked)
+                {
+                    await Context.Channel.SendErrorAsync("此網址需要在 NSFW 頻道使用");
+                    return;
                 }
             }
         }
 
         [Command("GodSay")]
+        [RequireContext(ContextType.Guild)]
         [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nw, e-, ex, h (限NSFW頻道使用)\n例:\n!!GodSay w 40600\n!!GodSay ex 1496326/aa30f4bfae")]
         [Alias("GS")]
         public async Task GodSayAsync([Summary("網站")] string host = null, [Summary("神的語言")] string godSay = null)
@@ -89,38 +85,35 @@ namespace DiscordDriverBot.Command.Normal
             if (host == null) { await ReplyAsync(Context.User.Mention + " 網站錯誤"); return; }
             if (godSay == null) { await ReplyAsync(Context.User.Mention + " 沒有神的語言"); return; }
 
-            string url;
-
-            switch (host.ToLower())
+            BookHost bookHost = host.ToLower() switch
             {
-                //case "n":
-                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                //    break;
-                case "w":
-                    url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
-                    break;
-                case "e-":
-                case "ex":
-                    url = string.Format("https://exhentai.org/g/{0}", godSay);
-                    break;
-                case "h":
-                    url = string.Format("https://hitomi.la/galleries/{0}.html", godSay);
-                    break;
-                case "p":
-                    url = string.Format("https://www.pixiv.net/artworks/{0}", godSay);
-                    break;
-                default:
-                    await Context.Channel.SendErrorAsync($"找不到 {host} 的縮寫網站");
-                    return;
+                "w" => BookHost.Wnacg,
+                "e-" or "ex" => BookHost.ExHentai,
+                "h" => BookHost.Hitomi,
+                "p" => BookHost.Pixiv,
+                _ => BookHost.None
+            };
+
+            if (bookHost == BookHost.None)
+            {
+                await Context.Channel.SendErrorAsync($"找不到 {host} 的縮寫網站");
+                return;
+            }
+
+            string url = GalleryUrl.GodSayUrl(bookHost, godSay);
+            if (url == null || !GalleryUrl.TryParse(url, out GalleryLink link))
+            {
+                await Context.Channel.SendErrorAsync($"網址格式錯誤: {godSay}");
+                return;
             }
 
             try
             {
-                if (url != "" && await Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User))
-                {
+                GalleryShowResult result = await Gallery.Function.ShowGalleryInfoAsync(link, Context.Guild, Context.Channel, Context.User);
+                if (result == GalleryShowResult.Shown)
                     SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
-                }
-
+                else if (result == GalleryShowResult.Blocked)
+                    await Context.Channel.SendErrorAsync("此網址需要在 NSFW 頻道使用");
             }
             catch (Exception ex)
             {

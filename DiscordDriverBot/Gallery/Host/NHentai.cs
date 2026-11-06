@@ -9,12 +9,11 @@ namespace DiscordDriverBot.Gallery.Host
 {
     class NHentai
     {
-        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
+        public static async Task<bool> GetDataAsync(GalleryLink link, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
-            if (!url.StartsWith("nhentai.net/g/")) return;
+            if (link.Kind != GalleryLinkKind.Gallery) return false;
 
-            string[] urlSplit = url.Split(new char[] { '?' })[0].Trim('/').Split(new char[] { '/' });
-            string ID = urlSplit[2];
+            string ID = link.Id;
             try
             {
                 string thumbnailURL, title, japanTitle, bookName;
@@ -39,7 +38,7 @@ namespace DiscordDriverBot.Gallery.Host
                             await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
                         else
                             await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
-                        return;
+                        return false;
                     }
 
                     thumbnailURL = $"https://t3.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
@@ -93,9 +92,12 @@ namespace DiscordDriverBot.Gallery.Host
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+                return true;
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "發送 NHentai 訊息失敗");
 #if RELEASE
                 if (ex.Message.Contains("50013"))
                 {
@@ -120,12 +122,12 @@ namespace DiscordDriverBot.Gallery.Host
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
-                        .WithUrl($"https://{url}")
+                        .WithUrl(link.SourceUrl)
                         .WithDescription(ex.ToString())
                         .Build());
-                    Log.Error(ex.ToString());
                 }
 #endif
+                return false;
             }
         }
     }

@@ -1,8 +1,10 @@
 ﻿using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
+using DiscordDriverBot.Gallery;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -35,7 +37,7 @@ namespace DiscordDriverBot.Command
         {
             var message = messageParam as SocketUserMessage;
             if (message == null || message.Author.IsBot) return;
-            var guild = message.GetGuild();
+            var guild = (message.Channel as IGuildChannel)?.Guild;
 
             int argPos = 0;
             if (message.HasStringPrefix($"!!", ref argPos) || message.HasStringPrefix($"<@{Program._client.CurrentUser.Id}>", ref argPos) || message.HasStringPrefix($"<@!{Program._client.CurrentUser.Id}>", ref argPos))
@@ -51,16 +53,17 @@ namespace DiscordDriverBot.Command
 
                     if (!result.IsSuccess)
                     {
-                        Log.Error($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message} 發生錯誤");
+                        Log.Error($"[{context.Guild?.Name ?? "DM"}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message} 發生錯誤");
                         Log.Error(result.ErrorReason);
                         await context.Channel.SendMessageAsync(result.ErrorReason);
                     }
                     else
                     {
-                        if ((context.Message.Author.Id == Program.ApplicatonOwner.Id || guild.Id == 429605944117297163) &&
+                        if (guild != null &&
+                            (context.Message.Author.Id == Program.ApplicatonOwner.Id || guild.Id == 429605944117297163) &&
                             !(context.Message.Content.StartsWith("!!sauce") && context.Message.Attachments.Count == 1))
                             await message.DeleteAsync();
-                        Log.Info($"[{context.Guild.Name}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message}");
+                        Log.Info($"[{context.Guild?.Name ?? "DM"}/{context.Message.Channel.Name}] {message.Author.Username} 執行 {context.Message}");
                     }
                 }
                 else
@@ -80,10 +83,7 @@ namespace DiscordDriverBot.Command
             else
             {
 #if DEBUG
-                foreach (string item in message.Content.Split(new char[] { '\n' }))
-                {
-                    await Gallery.Function.ShowGalleryInfoAsync(item, message.GetGuild(), message.Channel, message.Author);
-                }
+                await HandelMessageAsync(message);
 #elif RELEASE
                 try
                 {
@@ -100,24 +100,15 @@ namespace DiscordDriverBot.Command
 
         private async Task HandelMessageAsync(SocketUserMessage message)
         {
-            var guild = message.GetGuild();
-            string content = message.Content;
+            var guild = (message.Channel as IGuildChannel)?.Guild;
             ITextChannel channel = message.Channel as ITextChannel;
-            IGuildUser guildUser = message.Author as IGuildUser;
 
-            foreach (string item in content.Split(['\n']))
+            foreach (var link in GalleryUrl.Extract(message.Content).Take(5))
             {
-                try
+                if (await Gallery.Function.ShowGalleryInfoAsync(link, guild, message.Channel, message.Author) == GalleryShowResult.Shown)
                 {
-                    if (await Gallery.Function.ShowGalleryInfoAsync(item, guild, message.Channel, message.Author))
-                    {
-                        Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{guildUser.Username}: {item}", ConsoleColor.Gray);
-                        SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
-                    }
-                }
-                catch (Exception)
-                {
-                    throw;
+                    Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{message.Author.Username}: {link.SourceUrl}", ConsoleColor.Gray);
+                    if (link.IsBook) SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
                 }
             }
         }

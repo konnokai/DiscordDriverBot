@@ -12,19 +12,19 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
 {
     class EHentai
     {
-        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
+        public static async Task<bool> GetDataAsync(GalleryLink link, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
-            string[] urlSplit = url.Split(new char[] { '?' })[0].Trim('/').Split(new char[] { '/' });
-            string func = urlSplit[1], ID = urlSplit[2], token = urlSplit[3];
+            if (link.Kind != GalleryLinkKind.Gallery && link.Kind != GalleryLinkKind.EHentaiPage) return false;
+
+            string ID = link.Id, token = link.Token;
             bool isE_hentaiCanRead = false;
             HtmlWeb htmlWeb = new HtmlWeb(); HtmlDocument htmlDocument = new HtmlDocument();
 
             try
             {
-                if (func == "s")
+                if (link.Kind == GalleryLinkKind.EHentaiPage)
                 {
-                    string[] temp = token.Split(new char[] { '-' });
-                    Tokenlist tokenListResult = await Program.EHentaiAPIClient.GetGalleryTokenAsync(int.Parse(temp[0]), ID, int.Parse(temp[1]));
+                    Tokenlist tokenListResult = await Program.EHentaiAPIClient.GetGalleryTokenAsync(int.Parse(link.Id), link.Token, link.Page);
                     ID = tokenListResult.gid.ToString(); token = tokenListResult.token;
                 }
 
@@ -108,6 +108,8 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -121,11 +123,16 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
-                        .WithUrl($"https://{url}")
+                        .WithUrl(link.SourceUrl)
                         .WithDescription(ex.ToString())
                         .Build());
 #endif
                 Log.Error(ex.ToString());
+
+                if (interactionContext != null)
+                    await interactionContext.Interaction.FollowupAsync($"{user.Mention} 解析失敗，請確認網址是否正確", ephemeral: true);
+
+                return false;
             }
         }
     }

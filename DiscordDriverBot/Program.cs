@@ -96,12 +96,15 @@ namespace DiscordDriverBot
 
         public async Task MainAsync()
         {
+            if (BotConfig.MessageContentIntent) Log.Info("已啟用 Message Content Intent");
+
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
                 LogLevel = LogSeverity.Verbose,
                 ConnectionTimeout = int.MaxValue,
                 MessageCacheSize = 50,
-                GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents,
+                GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildScheduledEvents
+                    | (BotConfig.MessageContentIntent ? GatewayIntents.MessageContent : GatewayIntents.None),
                 AlwaysDownloadDefaultStickers = false,
                 AlwaysResolveStickers = false,
                 FormatUsersInBidirectionalUnicode = false,

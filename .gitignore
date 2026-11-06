@@ -363,3 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 graphify-out/
+
+# 正式環境資料庫（本機測試用，不進版控）
+Data/*.db
+Data/*.db-*

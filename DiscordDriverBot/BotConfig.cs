@@ -19,6 +19,9 @@ public class BotConfig
     public string? GitHubApiKey { get; set; } = default;
 
     [NotRequirement]
+    public bool MessageContentIntent { get; set; } = false;
+
+    [NotRequirement]
     public ulong TestSlashCommandGuildId { get; set; } = 0;
 
     [NotRequirement]
@@ -126,6 +129,7 @@ public class BotConfig
                 ExHentaiCookieSK = config.ExHentaiCookieSK;
                 GitHubApiKey = config.GitHubApiKey;
                 SauceNAOApiKey = config.SauceNAOApiKey;
+                MessageContentIntent = config.MessageContentIntent;
                 TestSlashCommandGuildId = config.TestSlashCommandGuildId;
                 UptimeKumaPushUrl = config.UptimeKumaPushUrl;
                 FlareSolverrApiUrl = config.FlareSolverrApiUrl;

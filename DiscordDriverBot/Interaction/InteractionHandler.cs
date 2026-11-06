@@ -2,12 +2,15 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 #if DEBUG
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
 #endif
 
@@ -19,7 +22,94 @@ namespace DiscordDriverBot.Interaction
         private readonly InteractionService _interactions;
         private readonly IServiceProvider _services;
 
-        public int CommandCount => _interactions.ComponentCommands.Count + _interactions.ContextCommands.Count + _interactions.SlashCommands.Count;
+        public string CommandSignature => BuildCommandSignature();
+
+        private string BuildCommandSignature()
+        {
+            var sb = new StringBuilder();
+
+            foreach (var module in _interactions.Modules
+                .Where((x) => x.IsSlashGroup)
+                .OrderBy(ModulePath, StringComparer.Ordinal))
+            {
+                sb.Append("group|").Append(ModulePath(module)).Append('|')
+                  .Append(module.Description).Append('|')
+                  .Append(Scope(null, module.DefaultMemberPermissions, module.ContextTypes, module.IntegrationTypes, module.IsNsfw, module.IsEnabledInDm))
+                  .Append('\n');
+            }
+
+            foreach (var cmd in _interactions.SlashCommands
+                .OrderBy((x) => CommandPath(x.Module, x.Name), StringComparer.Ordinal))
+            {
+                sb.Append("slash|").Append(CommandPath(cmd.Module, cmd.Name)).Append('|')
+                  .Append(cmd.Description).Append('|')
+                  .Append(Scope(cmd.DefaultMemberPermissions, cmd.Module.DefaultMemberPermissions, cmd.ContextTypes, cmd.IntegrationTypes, cmd.IsNsfw, cmd.IsEnabledInDm))
+                  .Append('|');
+
+                // 參數順序就是 Discord 註冊選項的順序，不能排序
+                foreach (var p in cmd.FlattenedParameters)
+                {
+                    sb.Append(p.Name).Append(':').Append(p.DiscordOptionType).Append(':')
+                      .Append(p.IsRequired ? "R" : "O").Append(':').Append(p.Description).Append(':')
+                      .Append(p.MinValue?.ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(p.MaxValue?.ToString(CultureInfo.InvariantCulture)).Append(':')
+                      .Append(p.MinLength).Append(':').Append(p.MaxLength).Append(':')
+                      .Append(p.IsAutocomplete ? "A" : "-").Append(':')
+                      .Append(string.Join(",", (p.ChannelTypes?.Select((x) => x.ToString()) ?? Enumerable.Empty<string>()).OrderBy((x) => x, StringComparer.Ordinal))).Append(':');
+                    foreach (var choice in GetChoices(p).OrderBy((x) => x.Name, StringComparer.Ordinal))
+                        sb.Append(choice.Name).Append('=').Append(choice.Value).Append(',');
+                    sb.Append(';');
+                }
+                sb.Append('\n');
+            }
+
+            foreach (var cmd in _interactions.ContextCommands
+                .OrderBy((x) => x.CommandType).ThenBy((x) => x.Name, StringComparer.Ordinal))
+                sb.Append("context|").Append(cmd.CommandType).Append('|').Append(cmd.Name).Append('|')
+                  .Append(Scope(cmd.DefaultMemberPermissions, cmd.Module.DefaultMemberPermissions, cmd.ContextTypes, cmd.IntegrationTypes, cmd.IsNsfw, cmd.IsEnabledInDm))
+                  .Append('\n');
+
+            using var sha = SHA256.Create();
+            return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString())));
+        }
+
+        private static string ModulePath(ModuleInfo module)
+        {
+            var parts = new List<string>();
+            for (var current = module; current != null && current.IsSlashGroup; current = current.Parent)
+                parts.Insert(0, current.SlashGroupName);
+            return string.Join(".", parts);
+        }
+
+        private static string CommandPath(ModuleInfo module, string name)
+        {
+            string group = ModulePath(module);
+            return string.IsNullOrEmpty(group) ? name : group + "." + name;
+        }
+
+        private static string Scope(GuildPermission? commandPermissions, GuildPermission? modulePermissions,
+            IEnumerable<InteractionContextType> contextTypes, IEnumerable<ApplicationIntegrationType> integrationTypes, bool isNsfw, bool isEnabledInDm) =>
+            string.Join("|", ((commandPermissions ?? 0) | (modulePermissions ?? 0)).ToString(),
+                string.Join(",", (contextTypes?.Select((x) => x.ToString()) ?? Enumerable.Empty<string>()).OrderBy((x) => x, StringComparer.Ordinal)),
+                string.Join(",", (integrationTypes?.Select((x) => x.ToString()) ?? Enumerable.Empty<string>()).OrderBy((x) => x, StringComparer.Ordinal)),
+                isNsfw, isEnabledInDm);
+
+        private static IEnumerable<(string Name, string Value)> GetChoices(SlashCommandParameterInfo parameter)
+        {
+            foreach (var choice in parameter.Choices)
+                yield return (choice.Name, Convert.ToString(choice.Value, CultureInfo.InvariantCulture));
+
+            Type enumType = Nullable.GetUnderlyingType(parameter.ParameterType) ?? parameter.ParameterType;
+            if (!enumType.IsEnum) yield break;
+
+            foreach (var member in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (member.IsDefined(typeof(HideAttribute), true)) continue;
+                string name = member.GetCustomAttribute<ChoiceDisplayAttribute>()?.Name ?? member.Name;
+                // Discord.Net 註冊 enum 選項時用成員名稱當 value
+                yield return (name, member.Name);
+            }
+        }
 
         public InteractionHandler(IServiceProvider services, InteractionService interactions, DiscordSocketClient client)
         {

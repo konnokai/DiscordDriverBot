@@ -202,10 +202,10 @@ namespace DiscordDriverBot
                 {
                     try
                     {
-                        int commandCount = 0;
-
-                        if (File.Exists(GetDataFilePath("CommandCount.bin")))
-                            commandCount = BitConverter.ToInt32(File.ReadAllBytes(GetDataFilePath("CommandCount.bin")));
+                        string signature = serviceProvider.GetService<InteractionHandler>().CommandSignature;
+                        string savedSignature = File.Exists(GetDataFilePath("CommandSignature.txt"))
+                            ? File.ReadAllText(GetDataFilePath("CommandSignature.txt")).Trim()
+                            : "";
 
                         if (BotConfig.TestSlashCommandGuildId != 0 && _client.GetGuild(BotConfig.TestSlashCommandGuildId) != null)
                         {
@@ -213,7 +213,7 @@ namespace DiscordDriverBot
                             Log.Info($"({BotConfig.TestSlashCommandGuildId}) 已移除測試指令，剩餘指令: {string.Join(", ", result.Select((x) => x.Name))}");
                         }
 
-                        if (commandCount != serviceProvider.GetService<InteractionHandler>().CommandCount)
+                        if (savedSignature != signature)
                         {
                             try
                             {
@@ -238,15 +238,15 @@ namespace DiscordDriverBot
                             }
 
                             await serviceProvider.GetService<InteractionService>().RegisterCommandsGloballyAsync();
-                            File.WriteAllBytes(GetDataFilePath("CommandCount.bin"), BitConverter.GetBytes(serviceProvider.GetService<InteractionHandler>().CommandCount));
+                            File.WriteAllText(GetDataFilePath("CommandSignature.txt"), signature);
                             Log.Info("已註冊全球指令");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.Error(ex, "設定指令數量失敗，請確認檔案是否正常");
-                        if (File.Exists(GetDataFilePath("CommandCount.bin")))
-                            File.Delete(GetDataFilePath("CommandCount.bin"));
+                        Log.Error(ex, "比對指令簽章失敗，請確認檔案是否正常");
+                        if (File.Exists(GetDataFilePath("CommandSignature.txt")))
+                            File.Delete(GetDataFilePath("CommandSignature.txt"));
 
                         isDisconnect = true;
                         return;
@@ -254,7 +254,7 @@ namespace DiscordDriverBot
                 }
                 catch (Exception ex)
                 {
-                    Log.Error(ex, "取得指令數量失敗");
+                    Log.Error(ex, "取得指令簽章失敗");
                     isDisconnect = true;
                 }
 #endif

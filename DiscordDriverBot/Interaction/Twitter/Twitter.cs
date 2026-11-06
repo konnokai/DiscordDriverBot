@@ -77,7 +77,7 @@ namespace DiscordDriverBot.Interaction.Twitter
             return $"檔名：`{name}`\n" +
                    $"上傳時間：{utcText} UTC（台灣 {twText}）\n" +
                    $"搜尋關鍵字：`{keyword}`\n" +
-                   Format.Url("開啟 X 搜尋頁", url);
+                   Format.Url("開啟 X 搜尋頁", Format.EscapeUrl(url));
         }
 
         private static string ToVxTwitter(string text)

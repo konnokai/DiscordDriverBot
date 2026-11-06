@@ -1,9 +1,11 @@
-﻿using FlareSolverrSharp.Solvers;
+﻿using FlareSolverrSharp.Types;
 using HtmlAgilityPack;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Web;
 
 namespace DiscordDriverBot.HttpClients.Ascii2D
@@ -12,28 +14,49 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
     public class Ascii2DClient
     {
         private readonly BotConfig _botConfig;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public Ascii2DClient(BotConfig botConfig)
+        public Ascii2DClient(BotConfig botConfig, IHttpClientFactory httpClientFactory)
         {
             _botConfig = botConfig;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async IAsyncEnumerable<Result> FindAsync(string url)
         {
             var uri = new Uri("https://ascii2d.net/search/url/" + HttpUtility.UrlEncode(url));
-            var flareSolverr = new FlareSolverr(_botConfig.FlareSolverrApiUrl);
-            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            // FlareSolverr 認不出中文的 Cloudflare 驗證頁，只能等 25 秒讓 JS 驗證跑完
+            var payload = JsonConvert.SerializeObject(new
+            {
+                cmd = "request.get",
+                url = uri.ToString(),
+                maxTimeout = 120000,
+                waitInSeconds = 25
+            });
 
-            flareSolverr.MaxTimeout = 120 * 1000;
+            using var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(180);
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var apiUrl = _botConfig.FlareSolverrApiUrl.TrimEnd('/') + "/v1";
+            using var response = await client.PostAsync(apiUrl, content);
 
-            var flareSolverrResponse = await flareSolverr.Solve(request);
+            var result = JsonConvert.DeserializeObject<FlareSolverrResponse>(await response.Content.ReadAsStringAsync());
+            if (result?.Status != "ok" || string.IsNullOrEmpty(result?.Solution?.Response))
+                throw new HttpRequestException("FlareSolverr: " + result?.Message);
 
+            foreach (var item in Parse(result.Solution.Response))
+                yield return item;
+        }
+
+        public static IReadOnlyList<Result> Parse(string html)
+        {
+            var list = new List<Result>();
             HtmlDocument HTMLdoc = new();
-            HTMLdoc.LoadHtml(flareSolverrResponse.Solution.Response);
+            HTMLdoc.LoadHtml(html);
 
-            var results = HTMLdoc.DocumentNode.SelectNodes("/html/body/div/div/div/div[@class='row item-box']");
+            var results = HTMLdoc.DocumentNode.SelectNodes("//div[@class='row item-box']");
             if (results == null)
-                yield return null;
+                return list;
 
             foreach (var item in results)
             {
@@ -42,15 +65,17 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                 if (info == null)
                     continue;
 
-                var hash = info.SelectSingleNode("div[@class='hash']").InnerText;
+                var hash = info.SelectSingleNode("div[@class='hash']")?.InnerText ?? "";
                 var detail = info.SelectSingleNode("div[@class='detail-box gray-link']");
-                if (detail.ChildNodes.Count <= 1) continue;
+                if (detail == null) continue;
 
                 string thumbnail = "";
                 try
                 {
                     var imageBox = item.ChildNodes.First((x) => x.HasClass("image-box")).SelectSingleNode("img");
-                    thumbnail = "https://ascii2d.net" + imageBox.GetAttributeValue("src", "");
+                    var src = imageBox.GetAttributeValue("src", "");
+                    if (!string.IsNullOrEmpty(src))
+                        thumbnail = new Uri(new Uri("https://ascii2d.net/"), src).ToString();
                 }
                 catch (Exception) { }
 
@@ -76,14 +101,14 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                     var extNode = detail.SelectSingleNode("div[@class='external']");
                     if (extNode != null)
                     {
-                        title = strong + extNode.FirstChild.InnerText.Trim('\n');
+                        title = strong + (extNode.FirstChild?.InnerText?.Trim('\n') ?? "");
 
                         if (nameAndAuthor == null) continue;
 
                         artlink = nameAndAuthor[0].Attributes["href"].Value;
                         host = $"{nameAndAuthor[0].InnerText}";
 
-                        yield return new Result() { Hash = hash, URL = artlink, Author = author, Title = title, Host = host, Thumbnail = thumbnail };
+                        list.Add(new Result() { Hash = hash, URL = artlink, Author = author, Title = title, Host = host, Thumbnail = thumbnail });
                         continue;
                     }
                     else
@@ -96,7 +121,7 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                 else
                 {
                     nameAndAuthor = detail.SelectNodes("h6/a[@href]");
-                    host = detail.SelectSingleNode("h6/small").InnerText;
+                    host = detail.SelectSingleNode("h6/small")?.InnerText ?? host;
                 }
 
                 if (nameAndAuthor == null) continue;
@@ -114,8 +139,10 @@ namespace DiscordDriverBot.HttpClients.Ascii2D
                     }
                 }
 
-                yield return new Result() { Hash = hash, URL = artlink, Author = author, Title = title, Host = host, Thumbnail = thumbnail };
+                list.Add(new Result() { Hash = hash, URL = artlink, Author = author, Title = title, Host = host, Thumbnail = thumbnail });
             }
+
+            return list;
         }
     }
 }

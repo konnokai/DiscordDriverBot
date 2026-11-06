@@ -173,13 +173,6 @@ namespace DiscordDriverBot.Interaction.Gallery
 
             try
             {
-                // 暫時關閉 Ascii2D 搜尋
-                //var result = await _service.SauceFromAscii2DAsync(url);
-                //if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
-                //    await FollowupAsync(embed: result.Embed, ephemeral: ephemeral);
-                //else
-                //    await Context.Interaction.SendErrorAsync(result.ErrorMessage, true);
-
                 var result = await _service.SauceFromSauceNAOAsync(url);
                 if (string.IsNullOrEmpty(result.ErrorMessage) && result.Embed != null)
                     await FollowupAsync(embed: result.Embed, ephemeral: ephemeral);
@@ -193,7 +186,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             }
         }
 
-        //[MessageCommand("搜尋 Ascii2D")]
+        [MessageCommand("搜尋 Ascii2D")]
         public async Task SauceAscii2DAsync(IMessage message)
         {
             if (message == null ||

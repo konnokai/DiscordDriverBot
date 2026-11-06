@@ -26,7 +26,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         }
 
         public async Task<(string ErrorMessage, Embed Embed)> SauceFromAscii2DAsync(string url)
-        {            
+        {
             try
             {
                 using var client = _httpClientFactory.CreateClient();
@@ -46,39 +46,28 @@ namespace DiscordDriverBot.Interaction.Gallery
 
             try
             {
-                var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
-                if (ascii2dResult != null)
+                List<string> description = new List<string>();
+                DiscordDriverBot.HttpClients.Ascii2D.Result first = null;
+                await foreach (var item in _ascii2DClient.FindAsync(url).Take(3))
                 {
-                    try
-                    {
-                        List<string> description = new List<string>();
-                        await foreach (var item in ascii2dResult)
-                        {
-                            if (item.Host == "dlsite")
-                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
-                            else
-                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
-                        }
-
-                        EmbedBuilder embedBuilder = new EmbedBuilder()
-                            .WithOkColor()
-                            .WithTitle(ascii2dResult.FirstAsync().Result.Title)
-                            .WithDescription(string.Join('\n', description))
-                            .WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail)
-                            .WithFooter("Ascii2D");
-
-                        return (null, embedBuilder.Build());
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex.Demystify(), url);
-                        return ("搜尋失敗，未知的錯誤", null);
-                    }
+                    first ??= item;
+                    if (item.Host == "dlsite")
+                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
+                    else
+                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
                 }
-                else
-                {
-                    return ("搜尋失敗，無回傳值", null);
-                }
+
+                if (first == null)
+                    return ("Ascii2D 沒拿到搜尋頁，可能卡在網站驗證，請稍後再試", null);
+
+                EmbedBuilder embedBuilder = new EmbedBuilder()
+                    .WithOkColor()
+                    .WithTitle(first.Title)
+                    .WithDescription(string.Join('\n', description))
+                    .WithThumbnailUrl(first.Thumbnail)
+                    .WithFooter("Ascii2D");
+
+                return (null, embedBuilder.Build());
             }
             catch (Exception ex)
             {

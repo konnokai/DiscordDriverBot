@@ -246,6 +246,7 @@ namespace DiscordDriverBot.Command.Normal
         {
             try
             {
+                var sauceTask = _sauceNAOClient.GetSauceAsync(url);
                 try
                 {
                     using var client = _httpClientFactory.CreateClient();
@@ -258,38 +259,31 @@ namespace DiscordDriverBot.Command.Normal
                     }
                     else
                     {
-                        var ascii2dResult = _ascii2DClient.FindAsync(url).Take(3);
-                        if (ascii2dResult != null)
+                        List<string> description = new List<string>();
+                        DiscordDriverBot.HttpClients.Ascii2D.Result first = null;
+                        await foreach (var item in _ascii2DClient.FindAsync(url).Take(3))
                         {
-                            try
-                            {
-                                List<string> description = new List<string>();
-                                await foreach (var item in ascii2dResult)
-                                {
-                                    if (item.Host == "dlsite")
-                                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
-                                    else
-                                        description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
-                                }
+                            first ??= item;
+                            if (item.Host == "dlsite")
+                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title}");
+                            else
+                                description.Add($"{Format.Url(item.Host, item.URL)} {item.Title} ({item.Author})");
+                        }
 
-                                EmbedBuilder embedBuilder = new EmbedBuilder()
-                                    .WithOkColor()
-                                    .WithTitle(ascii2dResult.FirstAsync().Result.Title)
-                                    .WithDescription(string.Join('\n', description))
-                                    .WithFooter("Ascii2D");
-                                embedBuilder.WithThumbnailUrl(ascii2dResult.FirstAsync().Result.Thumbnail);
+                        if (first != null)
+                        {
+                            EmbedBuilder embedBuilder = new EmbedBuilder()
+                                .WithOkColor()
+                                .WithTitle(first.Title)
+                                .WithDescription(string.Join('\n', description))
+                                .WithFooter("Ascii2D");
+                            embedBuilder.WithThumbnailUrl(first.Thumbnail);
 
-                                await ReplyAsync(null, false, embedBuilder.Build());
-                            }
-                            catch (Exception ex)
-                            {
-                                await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，未知的錯誤");
-                                Log.Error(ex.ToString());
-                            }
+                            await ReplyAsync(null, false, embedBuilder.Build());
                         }
                         else
                         {
-                            await Context.Channel.SendErrorAsync("Ascii2D搜尋失敗，未知的錯誤");
+                            await Context.Channel.SendErrorAsync("Ascii2D 沒拿到搜尋頁，可能卡在網站驗證，請稍後再試");
                         }
                     }
                 }
@@ -300,7 +294,7 @@ namespace DiscordDriverBot.Command.Normal
                     Log.Error(ex.ToString());
                 }
 
-                var sauceResult = await _sauceNAOClient.GetSauceAsync(url).ConfigureAwait(false);
+                var sauceResult = await sauceTask.ConfigureAwait(false);
                 if (sauceResult != null)
                 {
                     List<string> description = new List<string>();

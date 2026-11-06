@@ -126,6 +126,7 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "發送 Pixiv 訊息失敗");
 #if RELEASE
                 if (ex.Message.Contains("50013"))
                     await user.SendMessageAsync(embed: new EmbedBuilder()

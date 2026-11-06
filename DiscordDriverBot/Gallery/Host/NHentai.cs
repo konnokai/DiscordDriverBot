@@ -96,6 +96,7 @@ namespace DiscordDriverBot.Gallery.Host
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "發送 NHentai 訊息失敗");
 #if RELEASE
                 if (ex.Message.Contains("50013"))
                 {
@@ -123,7 +124,6 @@ namespace DiscordDriverBot.Gallery.Host
                         .WithUrl($"https://{url}")
                         .WithDescription(ex.ToString())
                         .Build());
-                    Log.Error(ex.ToString());
                 }
 #endif
             }

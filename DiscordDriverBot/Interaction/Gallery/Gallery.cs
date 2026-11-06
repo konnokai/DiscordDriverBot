@@ -24,8 +24,8 @@ namespace DiscordDriverBot.Interaction.Gallery
         [SlashCommand("auto-god-say", "依據輸入的字數來判斷網站並顯示神所說的句子")]
         [CommandSummary("依據輸入的字數來判斷網站並顯示神所說的句子\n\n" +
            "字數自動判斷的網站如下\n" +
-           "5-6為Wnacg，7為Hitomi\n" +
-           "8-9為Pixiv，gid/token為ExHentai")]
+           "5-6 為 Wnacg，7 為 Hitomi\n" +
+           "8-9 為 Pixiv，gid/token 為 ExHentai")]
         [CommandExample("52600", "95741451", "1496326/aa30f4bfae")]
         public async Task AutoGodSayAsync([Summary("神的語言")] string godSay)
         {
@@ -65,7 +65,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         [SlashCommand("god-say", "顯示神所說的文字")]
         [CommandSummary("顯示神所說的文字\n" +
             "Pixiv (普通頻道可用)\n" +
-            "Wancg, ExHentai, Hitomi (限NSFW頻道使用)\n")]
+            "Wancg, ExHentai, Hitomi (限 NSFW 頻道使用)\n")]
         [CommandExample("w 56600", "ex 1496326/aa30f4bfae")]
         public async Task GodSayAsync([Summary("網站")] Host host, [Summary("神的語言")] string godSay)
         {
@@ -103,7 +103,7 @@ namespace DiscordDriverBot.Interaction.Gallery
 
         [SlashCommand("search", "查本本")]
         [CommandSummary("查本本，可搜尋的網站有ex\n" +
-            "預設搜尋ExHentai")]
+            "預設搜尋 ExHentai")]
         [CommandExample("ExHentai 空色れん")]
         [RequireNsfw]
         public async Task SearchAsync([Summary("搜尋網站")] SearchHost host, [Summary("本子關鍵字")] string keyWord, [Summary("頁數")] int page = 1)

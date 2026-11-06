@@ -33,8 +33,8 @@ namespace DiscordDriverBot.Command.Normal
         [RequireContext(ContextType.Guild)]
         [Summary("依據輸入的字數來判斷網站並顯示神所說的句子" +
             "\n字數自動判斷的網站如下" +
-            "\n5-6為Wnacg，7為Hitomi" +
-            "\n8-9為Pixiv，gid/token為ExHentai" +
+            "\n5-6 為 Wnacg，7 為 Hitomi" +
+            "\n8-9 為 Pixiv，gid/token 為 ExHentai" +
             "\n\n例:" +
             "\n!!AutoGodSay 260600" +
             "\n!!AutoGodSay 74861170" +
@@ -78,7 +78,7 @@ namespace DiscordDriverBot.Command.Normal
 
         [Command("GodSay")]
         [RequireContext(ContextType.Guild)]
-        [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nw, e-, ex, h (限NSFW頻道使用)\n例:\n!!GodSay w 40600\n!!GodSay ex 1496326/aa30f4bfae")]
+        [Summary("顯示神所說的文字\n縮寫為p (普通頻道可用)\nw, e-, ex, h (限 NSFW 頻道使用)\n例:\n!!GodSay w 40600\n!!GodSay ex 1496326/aa30f4bfae")]
         [Alias("GS")]
         public async Task GodSayAsync([Summary("網站")] string host = null, [Summary("神的語言")] string godSay = null)
         {
@@ -131,7 +131,7 @@ namespace DiscordDriverBot.Command.Normal
 
         [Command("Search")]
         [Summary("查本本，可搜尋的網站有ex" +
-            "\n預設搜尋ExHentai" +
+            "\n預設搜尋 ExHentai" +
             "\n如關鍵字有空白，請在關鍵字錢後加上\"\"" +
             "\n\n例:" +
             "\n!!Search ex \"空色れん\" 1")]
@@ -216,39 +216,6 @@ namespace DiscordDriverBot.Command.Normal
 
             await ReplyAsync(embed: embedBuilder.Build());
         }
-
-        //[Command("GetExToken")]
-        //[Summary("輸入E-Hentai的ID，丟出完整網址\n若頻道為NSFW的話則會直接丟出詳細資料\n例: !!GetExToken 1451369\n回傳: https://exhentai.org/g/1451369/e25f951bb3/")]
-        //[Alias("GET")]
-        //[RequireNsfw]
-        //public async Task GetExTokenAsync(uint id = 0)
-        //{
-        //    try
-        //    {
-        //        using (WebClient webClient = new WebClient())
-        //        {
-        //            string result;
-        //            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        //                result = webClient.DownloadString($"https://?id={id}");
-        //            else
-        //                result = webClient.DownloadString($"http://127.0.0.1:81/?id={id}");
-
-        //            if (result.StartsWith("{}"))
-        //                await ReplyAsync($"ID {id} 無資料");
-        //            else
-        //            {
-        //                API.GalleryData galleryData = JsonConvert.DeserializeObject<API.GalleryData>(result);
-        //                if (((ITextChannel)Context.Channel).IsNsfw || galleryData.Type == "Non-H") EHentai.GetData($"exhentai.org/g/{galleryData.ID}/{galleryData.Token}", Context);
-        //                else await ReplyAsync($"https://exhentai.org/g/{galleryData.ID}/{galleryData.Token}");
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        await ReplyAsync("因系統問題，暫不開放使用");
-        //        Log.FormatColorWrite(ex.Message + "\r\n" + ex.StackTrace, ConsoleColor.DarkRed);
-        //    }
-        //}
 
         [Command("Sauce")]
         [Summary("以圖搜圖，參數可指定向上略過幾張圖片來做搜尋\n" +

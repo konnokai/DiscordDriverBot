@@ -277,10 +277,5 @@ namespace DiscordDriverBot.Command
                 Program.ListBookLogData.Add(bookData);
             }
         }
-
-        public static IGuild GetGuild(this IMessage channel)
-        {
-            return Program._client.Guilds.FirstOrDefault((x) => x.TextChannels.Any((x2) => x2.Id == channel.Channel.Id));
-        }
     }
 }

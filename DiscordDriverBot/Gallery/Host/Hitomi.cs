@@ -13,20 +13,22 @@ namespace DiscordDriverBot.Gallery.Host
     {
         static Regex hashRegex = new Regex(@"[0-9a-f]{61}([0-9a-f]{2})([0-9a-f])");
 
-        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
+        public static async Task<bool> GetDataAsync(GalleryLink link, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
+            if (link.Kind != GalleryLinkKind.Gallery) return false;
+
+            string id = link.Id;
+
             try
             {
-                string[] urlSplit = url.Split(new string[] { "?", "#" }, StringSplitOptions.RemoveEmptyEntries)[0].Trim('/').Split(new char[] { '/' });
-                string id = urlSplit[2].Replace(".html", "");
 
                 if (!Function.GetIDIsExist($"https://hitomi.la/galleries/{id}.html"))
                 {
                     if (interactionContext == null)
-                        await messageChannel.SendErrorAsync($"{user.Mention} ID {id.Split(new char[] { '.' })[0]} 不存在本子");
+                        await messageChannel.SendErrorAsync($"{user.Mention} ID {id} 不存在本子");
                     else
-                        await interactionContext.Interaction.FollowupAsync($"ID {id.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
-                    return;
+                        await interactionContext.Interaction.FollowupAsync($"ID {id} 不存在本子", ephemeral: true);
+                    return false;
                 }
 
                 string thumbnailURL = "", title = "", artist = "", bookName = "";
@@ -58,7 +60,7 @@ namespace DiscordDriverBot.Gallery.Host
                     if (gallery.Tags.Any((x) => !string.IsNullOrEmpty(x.Male)))
                         dicTag.Add("男性", gallery.Tags.Where((x) => !string.IsNullOrEmpty(x.Male)).Select((x) => x.Name).ToList());
 
-                    new SQLite.Table.BookData(string.Format("https://hitomi.la/galleries/{0}", id), title, artist, thumbnailURL, dicTag).InsertNewData();
+                    new SQLite.Table.BookData(string.Format("https://hitomi.la/galleries/{0}.html", id), title, artist, thumbnailURL, dicTag).InsertNewData();
                 }
 
                 Log.New($"{thumbnailURL} ({bookName})");
@@ -94,6 +96,8 @@ namespace DiscordDriverBot.Gallery.Host
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -107,11 +111,16 @@ namespace DiscordDriverBot.Gallery.Host
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
-                        .WithUrl($"https://{url}")
+                        .WithUrl(link.SourceUrl)
                         .WithDescription(ex.ToString())
                         .Build());
 #endif
                 Log.Error(ex.ToString());
+
+                if (interactionContext != null)
+                    await interactionContext.Interaction.FollowupAsync($"{user.Mention} 解析失敗，請確認網址是否正確", ephemeral: true);
+
+                return false;
             }
         }
     }

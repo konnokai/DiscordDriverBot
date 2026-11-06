@@ -4,6 +4,7 @@ using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -11,38 +12,44 @@ namespace DiscordDriverBot.Gallery.Host
 {
     public class Wnacg : ICommandService
     {
-        public static async Task GetDataAsync(string url, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
+        public static async Task<bool> GetDataAsync(GalleryLink link, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
-            if (url.Contains("?ctl"))
-            {
-                var array = HttpUtility.ParseQueryString(url.Split(['?'])[1]);
-                url = $"{array.Get("ctl")}-{array.Get("act")}-{array.GetKey(2)}-{array.Get(array.GetKey(2))}";
-            }
-            string[] urlSplit = url.Split(['?'])[0].Split(['-']);
-            string ID = urlSplit[3].Split([".html"], StringSplitOptions.RemoveEmptyEntries)[0];
+            if (link.Kind != GalleryLinkKind.Gallery && link.Kind != GalleryLinkKind.WnacgView) return false;
 
-            if (urlSplit[2] == "aid")
-            {
-                if (!Function.GetIDIsExist(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID)))
-                {
-                    if (interactionContext == null)
-                        await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(['.'])[0]} 不存在本子");
-                    else
-                        await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(['.'])[0]} 不存在本子", ephemeral: true);
-                    return;
-                }
-            }
+            string ID = link.Id;
 
             try
             {
                 HtmlWeb htmlWeb = new HtmlWeb(); IEnumerable<HtmlNode> htmlDocumentNode;
-                if (urlSplit[1] == "view")
+
+                if (link.Kind == GalleryLinkKind.WnacgView)
                 {
-                    htmlDocumentNode = htmlWeb.Load(string.Format("https://www.wnacg.com/photos-view-id-{0}.html", ID)).DocumentNode.Descendants();
-                    urlSplit = htmlDocumentNode.First((x) => x.Name == "link" && x.Attributes.Any((x2) => x2.Name == "rel" && x2.Value == "alternate")).Attributes["href"].Value.Split(['-']);
-                    ID = urlSplit[3];
+                    htmlDocumentNode = htmlWeb.Load($"https://www.wnacg.com/photos-view-id-{ID}.html").DocumentNode.Descendants();
+                    string href = htmlDocumentNode
+                        .Where((x) => x.Name == "link" && x.Attributes.Any((x2) => x2.Name == "rel" && x2.Value == "alternate"))
+                        .Select((x) => x.GetAttributeValue("href", ""))
+                        .FirstOrDefault((x) => Regex.IsMatch(x, @"-aid-\d{1,9}\.html$"));
+
+                    Match match = Regex.Match(href ?? "", @"-aid-(?<id>\d{1,9})\.html$");
+                    if (!match.Success)
+                    {
+                        if (interactionContext == null)
+                            await messageChannel.SendErrorAsync($"{user.Mention} 找不到此本子");
+                        else
+                            await interactionContext.Interaction.FollowupAsync($"{user.Mention} 找不到此本子", ephemeral: true);
+                        return false;
+                    }
+
+                    ID = match.Groups["id"].Value;
                 }
-                else if (urlSplit[2] == "page") ID = urlSplit[5];
+                else if (!Function.GetIDIsExist($"https://www.wnacg.com/photos-index-aid-{ID}.html"))
+                {
+                    if (interactionContext == null)
+                        await messageChannel.SendErrorAsync($"{user.Mention} ID {ID} 不存在本子");
+                    else
+                        await interactionContext.Interaction.FollowupAsync($"ID {ID} 不存在本子", ephemeral: true);
+                    return false;
+                }
 
                 string thumbnailURL, title, description = "", bookName;
                 Dictionary<string, List<string>> dicTag;
@@ -127,6 +134,8 @@ namespace DiscordDriverBot.Gallery.Host
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+                return true;
             }
             catch (Exception ex)
             {
@@ -140,7 +149,7 @@ namespace DiscordDriverBot.Gallery.Host
                     await Program.ApplicatonOwner.SendMessageAsync(embed: new EmbedBuilder()
                         .WithErrorColor()
                         .WithTitle($"{user.Username} ({guild.Name} ({guild.Id})/{messageChannel.Name} ({messageChannel.Id}))")
-                        .WithUrl($"https://{url}")
+                        .WithUrl(link.SourceUrl)
                         .WithDescription(ex.ToString())
                         .Build());
 #endif
@@ -155,6 +164,8 @@ namespace DiscordDriverBot.Gallery.Host
                     await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
                 else
                     await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+
+                return false;
             }
         }
     }

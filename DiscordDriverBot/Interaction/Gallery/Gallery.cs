@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordDriverBot.Gallery;
 using DiscordDriverBot.Interaction.Attribute;
 using System;
 using System.Diagnostics;
@@ -23,43 +24,28 @@ namespace DiscordDriverBot.Interaction.Gallery
         [SlashCommand("auto-god-say", "依據輸入的字數來判斷網站並顯示神所說的句子")]
         [CommandSummary("依據輸入的字數來判斷網站並顯示神所說的句子\n\n" +
            "字數自動判斷的網站如下\n" +
-           "5為Wnacg，7為Hitomi\n" +
-           "8為Pixiv，18跟19為ExHentai")]
+           "5-6為Wnacg，7為Hitomi\n" +
+           "8-9為Pixiv，gid/token為ExHentai")]
         [CommandExample("52600", "95741451", "1496326/aa30f4bfae")]
         public async Task AutoGodSayAsync([Summary("神的語言")] string godSay)
         {
             await Context.Interaction.DeferAsync();
-            string url;
-            switch (godSay.Length)
+
+            BookHost host = GalleryUrl.GuessGodSayHost(godSay);
+            string url = GalleryUrl.GodSayUrl(host, godSay);
+            if (url == null || !GalleryUrl.TryParse(url, out GalleryLink link))
             {
-                case 5:
-                    url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
-                    break;
-                //case 6:
-                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                //    break;
-                case 7:
-                    url = string.Format("https://hitomi.la/galleries/{0}.html", godSay);
-                    break;
-                case 8:
-                case 9:
-                    url = string.Format("https://www.pixiv.net/artworks/{0}", godSay);
-                    break;
-                case 18:
-                case 19:
-                    url = string.Format("https://exhentai.org/g/{0}", godSay);
-                    break;
-                default:
-                    await Context.Interaction.SendErrorAsync($"{Context.User.Mention} 我不知道 {godSay} 所代表的網站，請使用 `/utility god-say 本子網址 神的語言`", true, true);
-                    return;
+                await Context.Interaction.SendErrorAsync($"{Context.User.Mention} 我不知道 {godSay} 所代表的網站，請使用 `/gallery god-say 本子網址 神的語言`", true, true);
+                return;
             }
 
             try
             {
-                if (url != "" && await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
-                {
+                GalleryShowResult result = await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(link, Context.Guild, Context.Channel, Context.User, Context);
+                if (result == GalleryShowResult.Shown)
                     SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
-                }
+                else if (result == GalleryShowResult.Blocked)
+                    await Context.Interaction.SendErrorAsync($"{Context.User.Mention} 此網址需要在 NSFW 頻道使用", true, true);
             }
             catch (Exception ex)
             {
@@ -84,37 +70,34 @@ namespace DiscordDriverBot.Interaction.Gallery
         public async Task GodSayAsync([Summary("網站")] Host host, [Summary("神的語言")] string godSay)
         {
             await Context.Interaction.DeferAsync();
-            string url = "";
 
-            switch (host)
+            BookHost bookHost = host switch
             {
-                case Host.ExHentai:
-                    url = string.Format("https://exhentai.org/g/{0}", godSay);
-                    break;
-                //case Host.NHentai:
-                //    url = string.Format("https://nhentai.net/g/{0}", godSay);
-                //    break;
-                case Host.Wancg:
-                    url = string.Format("https://www.wnacg.org/photos-index-aid-{0}.html", godSay);
-                    break;
-                case Host.Hitomi:
-                    url = string.Format("https://hitomi.la/galleries/{0}.html", godSay);
-                    break;
-                case Host.Pixiv:
-                    url = string.Format("https://www.pixiv.net/artworks/{0}", godSay);
-                    break;
+                Host.ExHentai => BookHost.ExHentai,
+                Host.Wancg => BookHost.Wnacg,
+                Host.Hitomi => BookHost.Hitomi,
+                Host.Pixiv => BookHost.Pixiv,
+                _ => BookHost.None
+            };
+
+            string url = GalleryUrl.GodSayUrl(bookHost, godSay);
+            if (url == null || !GalleryUrl.TryParse(url, out GalleryLink link))
+            {
+                await Context.Interaction.SendErrorAsync($"{Context.User.Mention} 網址格式錯誤，請確認 ID 或加上 token", true, true);
+                return;
             }
 
             try
             {
-                if (url != "" && await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(url, Context.Guild, Context.Channel, Context.User, Context))
-                {
+                GalleryShowResult result = await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(link, Context.Guild, Context.Channel, Context.User, Context);
+                if (result == GalleryShowResult.Shown)
                     SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
-                }
+                else if (result == GalleryShowResult.Blocked)
+                    await Context.Interaction.SendErrorAsync($"{Context.User.Mention} 此網址需要在 NSFW 頻道使用", true, true);
             }
             catch (Exception ex)
             {
-                await Context.Interaction.SendErrorAsync(ex.Message, true);
+                await Context.Interaction.SendErrorAsync(ex.Message, true, true);
             }
         }
 
@@ -261,27 +244,47 @@ namespace DiscordDriverBot.Interaction.Gallery
                 return;
             }
 
+            var links = GalleryUrl.Extract(content).Take(5).ToList();
+            if (links.Count == 0)
+            {
+                await Context.Interaction.SendErrorAsync("無任何可供解析的網址");
+                return;
+            }
+
             try
             {
                 bool hasAnyResult = false;
+                bool isBlocked = false;
+                bool hasFailed = false;
                 await DeferAsync();
 
-                foreach (string item in content.Split(new char[] { '\n' }))
+                foreach (var link in links)
                 {
-                    if (await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(item, Context.Guild, message.Channel, message.Author, Context))
+                    GalleryShowResult result = await DiscordDriverBot.Gallery.Function.ShowGalleryInfoAsync(link, Context.Guild, Context.Channel, Context.User, Context);
+                    if (result == GalleryShowResult.Shown)
                     {
                         hasAnyResult = true;
-                        Log.FormatColorWrite($"[{Context.Guild.Name}/{Context.Channel.Name}]{Context.User.Username}: {item}", ConsoleColor.Gray);
-                        SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                        Log.FormatColorWrite($"[{Context.Guild.Name}/{Context.Channel.Name}]{Context.User.Username}: {link.SourceUrl}", ConsoleColor.Gray);
+                        if (link.IsBook) SQLite.SQLiteFunction.UpdateGuildReadedBook(Context.Guild.Id);
+                    }
+                    else if (result == GalleryShowResult.Blocked)
+                    {
+                        isBlocked = true;
+                    }
+                    else
+                    {
+                        hasFailed = true;
                     }
                 }
 
-                if (!hasAnyResult)
-                    await Context.Interaction.SendErrorAsync("無任何可供解析的網址", true);
+                if (isBlocked && (hasAnyResult || hasFailed))
+                    await Context.Interaction.SendErrorAsync("部分網址需要在 NSFW 頻道使用", true, true);
+                else if (!hasAnyResult && !hasFailed)
+                    await Context.Interaction.SendErrorAsync(isBlocked ? "此網址需要在 NSFW 頻道使用" : "無任何可供解析的網址", true, true);
             }
             catch (Exception ex)
             {
-                await Context.Interaction.SendErrorAsync("解析失敗，未知的錯誤", true);
+                await Context.Interaction.SendErrorAsync("解析失敗，未知的錯誤", true, true);
                 Log.Error(ex.Demystify(), content);
             }
         }

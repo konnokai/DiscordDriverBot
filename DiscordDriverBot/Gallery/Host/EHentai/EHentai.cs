@@ -84,30 +84,27 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
 
                 Log.New($"{thumbnailURL} ({bookName})");
 
-                EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
-                    .WithOkColor()
-                    .WithTitle(title)
-                    .WithUrl(string.Format("https://exhentai.org/g/{0}/{1}/", ID, token))
-                    .WithDescription(japanTitle)
-                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                GalleryCard card = GalleryMessage.Card()
+                    .WithHeader(title, string.Format("https://exhentai.org/g/{0}/{1}/", ID, token), guild.Id == 463657254105645056 ? null : thumbnailURL);
+
+                if (!string.IsNullOrWhiteSpace(japanTitle))
+                    card.Text(japanTitle);
 
                 foreach (KeyValuePair<string, List<string>> item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), true);
+                    card.WithField(item.Key, string.Join(", ", item.Value));
 
                 SearchSingle.SearchNHentai(title.FormatBookName(), out string nHentaiUrl, out string nHentaiLanguage);
                 SearchSingle.SearchWnacg(bookName, out string wnacgUrl, out string wnacgLanguage);
 
-                discordEmbedBuilder.AddField("其他網站(不一定正確):",
+                card.WithField("其他網站(不一定正確):",
                     (string.Format("[表站{0}]({1})\t", isE_hentaiCanRead ? "" : "(需要銅星贊助)", string.Format("https://e-hentai.org/g/{0}/{1}/", ID, token))) +
                     (nHentaiUrl != "" ? string.Format("[N站({0})]({1})\t", nHentaiLanguage, nHentaiUrl) : "") +
-                    (wnacgUrl != "" ? string.Format("[W站({0})]({1})", wnacgLanguage, wnacgUrl) : ""), true);
+                    (wnacgUrl != "" ? string.Format("[W站({0})]({1})", wnacgLanguage, wnacgUrl) : ""));
 
-                if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
-                discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
-                if (interactionContext == null)
-                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
-                else
-                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+                if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
+                card.WithFooter(user);
+
+                await card.SendAsync(messageChannel, interactionContext);
 
                 return true;
             }

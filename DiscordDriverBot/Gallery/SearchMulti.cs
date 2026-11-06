@@ -1,4 +1,5 @@
-﻿using HtmlAgilityPack;
+﻿using DiscordDriverBot.HttpClients.NHentai;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ namespace DiscordDriverBot.Gallery
     {
         public string SearchURL { get; set; }
         public int SearchCount { get; set; }
+        public int TotalPages { get; set; }
         public List<SearchBookData> BookData { get; set; } = new List<SearchBookData>();
     }
 
@@ -37,7 +39,7 @@ namespace DiscordDriverBot.Gallery
 
                 IEnumerable<HtmlNode> htmlDocumentNode1 = htmlDocumentNode.Where((x) => x.HasClass("glink"));
                 int searchCount = int.Parse(htmlDocumentNode.First((x) => x.HasClass("ip")).InnerText.Split(new char[] { ' ' })[1].Replace(",", ""));
-                SearchResult searchResult = new SearchResult() { SearchURL = searchURL, SearchCount = searchCount };
+                SearchResult searchResult = new SearchResult() { SearchURL = searchURL, SearchCount = searchCount, TotalPages = (searchCount / 25) + 1 };
 
                 foreach (HtmlNode item in htmlDocumentNode1)
                 {
@@ -55,36 +57,35 @@ namespace DiscordDriverBot.Gallery
             catch (Exception ex) { Log.Error(ex.ToString()); return null; }
         }
 
-        //public static async Task<SearchResult> SearchNHentaiAsync(string bookName, int page)
-        //{
-        //    //try
-        //    //{
-        //    //    HtmlWeb htmlWeb = new HtmlWeb();
-        //    //    string searchURL = string.Format("https://nhentai.net/search/?q={0}", bookName).Replace(" ", "+");
-        //    //    if (page > 1) searchURL += "&page=" + page.ToString();
+        public static async Task<SearchResult> SearchNHentaiAsync(string bookName, int page)
+        {
+            if (string.IsNullOrWhiteSpace(bookName)) return null;
 
-        //    //    IEnumerable<HtmlNode> htmlDocumentNode = (await htmlWeb.LoadFromWebAsync(searchURL)).DocumentNode.Descendants();
-        //    //    IEnumerable<HtmlNode> htmlNodes = htmlDocumentNode.Where((x) => x.Name == "div" && x.HasClass("gallery"));
-        //    //    int searchCount = int.Parse(htmlDocumentNode.First((x) => x.Name == "h2").InnerText.Split(new char[] { ' ' })[0]);
-        //    //    SearchResult searchResult = new SearchResult() { SearchURL = searchURL, SearchCount = searchCount };
+            try
+            {
+                GallerySearch search = await Program.NHentaiAPIClient.SearchAsync(bookName, page);
+                if (search?.Result == null || search.Result.Count == 0) return null;
 
-        //    //    foreach (HtmlNode item in htmlNodes)
-        //    //    {
-        //    //        if (item.Attributes.Any((x) => x.Name == "data-tags"))
-        //    //        {
-        //    //            string language = "";
-        //    //            if (item.Attributes.Any((x) => x.Value.Contains("29963"))) language = "中文";
-        //    //            else if (item.Attributes.Any((x) => x.Value.Contains("6346"))) language = "日文";
-        //    //            else language = "其他";
+                SearchResult searchResult = new()
+                {
+                    SearchURL = $"https://nhentai.net/search/?q={Uri.EscapeDataString(bookName)}&page={page}",
+                    SearchCount = search.Total ?? search.Result.Count,
+                    TotalPages = search.NumPages
+                };
 
-        //    //            searchResult.BookData.Add(new SearchBookData() { Title = item.Descendants().First((x) => x.HasClass("caption")).InnerText, Language = language, URL = "https://nhentai.net" + item.FirstChild.Attributes["href"].Value });
-        //    //        }
-        //    //    }
+                foreach (GalleryListItem item in search.Result)
+                {
+                    searchResult.BookData.Add(new SearchBookData()
+                    {
+                        Title = item.EnglishTitle.Length > 256 ? item.EnglishTitle[..255] + "…" : item.EnglishTitle,
+                        Language = SearchSingle.GetLanguage(item.TagIds),
+                        URL = $"https://nhentai.net/g/{item.Id}/"
+                    });
+                }
 
-        //    //    return searchResult;
-        //    //}
-        //    //catch (Exception ex) { Log.Error(ex.ToString()); return null; }
-        //    return null;
-        //}
+                return searchResult;
+            }
+            catch (Exception ex) { Log.Error(ex.ToString()); return null; }
+        }
     }
 }

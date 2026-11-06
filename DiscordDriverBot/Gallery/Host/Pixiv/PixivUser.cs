@@ -29,6 +29,15 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
 
         [JsonProperty("webpage")]
         public string Webpage { get; set; }
+
+        [JsonProperty("background")]
+        public PixivUserBackground Background { get; set; }
+    }
+
+    public class PixivUserBackground
+    {
+        [JsonProperty("url")]
+        public string Url { get; set; }
     }
 
     public class PixivUserTopResponse
@@ -50,6 +59,12 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
 
         [JsonProperty("title")]
         public string Title { get; set; }
+
+        [JsonProperty("url")]
+        public string Url { get; set; }
+
+        [JsonProperty("xRestrict")]
+        public int XRestrict { get; set; }
 
         [JsonProperty("createDate")]
         public DateTime CreateDate { get; set; }

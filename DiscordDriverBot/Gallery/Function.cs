@@ -13,13 +13,6 @@ namespace DiscordDriverBot.Gallery
         {
             if (link == null) return GalleryShowResult.Failed;
 
-            if (link.Host == BookHost.NHentai)
-            {
-                if (interactionContext != null)
-                    await interactionContext.Interaction.FollowupAsync("NHentai 目前停用", ephemeral: true);
-                return GalleryShowResult.Failed;
-            }
-
             if (guild == null || messageChannel is not ITextChannel textChannel) return GalleryShowResult.Blocked;
             if (link.Host != BookHost.Pixiv && !textChannel.IsNsfw && user.Id != Program.ApplicatonOwner.Id) return GalleryShowResult.Blocked;
 
@@ -28,10 +21,10 @@ namespace DiscordDriverBot.Gallery
                 BookHost.Wnacg => await Host.Wnacg.GetDataAsync(link, guild, messageChannel, user, interactionContext),
                 BookHost.E_Hentai or BookHost.ExHentai => await Host.EHentai.EHentai.GetDataAsync(link, guild, messageChannel, user, interactionContext),
                 BookHost.Hitomi => await Host.Hitomi.GetDataAsync(link, guild, messageChannel, user, interactionContext),
+                BookHost.NHentai => await Host.NHentai.GetDataAsync(link, guild, messageChannel, user, interactionContext),
                 BookHost.Pixiv => link.Kind == GalleryLinkKind.PixivUser
                     ? await Host.Pixiv.Pixiv.GetUserDataAsync(link, guild, messageChannel, user, interactionContext)
                     : await Host.Pixiv.Pixiv.GetDataAsync(link, guild, messageChannel, user, interactionContext),
-                // NHentai 目前停用
                 _ => false
             };
 

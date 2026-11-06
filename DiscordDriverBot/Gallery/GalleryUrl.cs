@@ -184,6 +184,7 @@ namespace DiscordDriverBot.Gallery
                 BookHost.Wnacg => $"https://www.wnacg.com/photos-index-aid-{godSay}.html",
                 BookHost.E_Hentai or BookHost.ExHentai => $"https://exhentai.org/g/{godSay}",
                 BookHost.Hitomi => $"https://hitomi.la/galleries/{godSay}.html",
+                BookHost.NHentai => $"https://nhentai.net/g/{godSay}",
                 BookHost.Pixiv => $"https://www.pixiv.net/artworks/{godSay}",
                 _ => null
             };

@@ -17,11 +17,42 @@ namespace DiscordDriverBot.Command.Administration
         public async Task ClearUser(ITextChannel textChannel, ulong uId)
         {
             IEnumerable<IMessage> msgs = (await textChannel.GetMessagesAsync(100).FlattenAsync().ConfigureAwait(false))
-                .Where((item) => item.Author.Id == _Client.CurrentUser.Id && item.Embeds.Count > 0 &&
-                item.Embeds.First().Footer.HasValue && item.Embeds.First().Footer.Value.Text.Contains(uId.ToString()));
+                .Where((item) => item.Author.Id == _Client.CurrentUser.Id && MentionedUser(item, uId));
 
 
             await Task.WhenAll(Task.Delay(1000), textChannel.DeleteMessagesAsync(msgs)).ConfigureAwait(false);
+        }
+
+        // 舊卡片把使用者 ID 放在 embed footer，新卡片（Components V2）放在 TextDisplay 裡
+        private static bool MentionedUser(IMessage message, ulong uId)
+        {
+            string tag = $"ID: {uId}";
+
+            if (message.Embeds.FirstOrDefault()?.Footer?.Text?.EndsWith(tag) == true) return true;
+
+            return Flatten(message.Components)
+                .OfType<TextDisplayComponent>()
+                .Any((x) => x.Content.EndsWith(tag));
+        }
+
+        private static IEnumerable<IMessageComponent> Flatten(IEnumerable<IMessageComponent> components)
+        {
+            foreach (IMessageComponent component in components)
+            {
+                yield return component;
+
+                IEnumerable<IMessageComponent> children = component switch
+                {
+                    ContainerComponent container => container.Components,
+                    SectionComponent section => section.Components,
+                    ActionRowComponent actionRow => actionRow.Components,
+                    _ => null
+                };
+
+                if (children == null) continue;
+
+                foreach (IMessageComponent child in Flatten(children)) yield return child;
+            }
         }
 
         public async Task ClearUser(ITextChannel textChannel)

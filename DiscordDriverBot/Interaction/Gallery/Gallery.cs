@@ -18,7 +18,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         public enum SearchHost
         {
             ExHentai,
-            //NHentai
+            NHentai
         }
 
         [SlashCommand("auto-god-say", "依據輸入的字數來判斷網站並顯示神所說的句子")]
@@ -56,7 +56,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         public enum Host
         {
             ExHentai,
-            //NHentai,
+            NHentai,
             Wancg,
             Hitomi,
             Pixiv
@@ -65,7 +65,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         [SlashCommand("god-say", "顯示神所說的文字")]
         [CommandSummary("顯示神所說的文字\n" +
             "Pixiv (普通頻道可用)\n" +
-            "Wancg, ExHentai, Hitomi (限 NSFW 頻道使用)\n")]
+            "Wancg, ExHentai, Hitomi, NHentai (限 NSFW 頻道使用)\n")]
         [CommandExample("w 56600", "ex 1496326/aa30f4bfae")]
         public async Task GodSayAsync([Summary("網站")] Host host, [Summary("神的語言")] string godSay)
         {
@@ -74,6 +74,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             BookHost bookHost = host switch
             {
                 Host.ExHentai => BookHost.ExHentai,
+                Host.NHentai => BookHost.NHentai,
                 Host.Wancg => BookHost.Wnacg,
                 Host.Hitomi => BookHost.Hitomi,
                 Host.Pixiv => BookHost.Pixiv,
@@ -102,7 +103,7 @@ namespace DiscordDriverBot.Interaction.Gallery
         }
 
         [SlashCommand("search", "查本本")]
-        [CommandSummary("查本本，可搜尋的網站有ex\n" +
+        [CommandSummary("查本本，可搜尋的網站有 ExHentai、NHentai\n" +
             "預設搜尋 ExHentai")]
         [CommandExample("ExHentai 空色れん")]
         [RequireNsfw]
@@ -116,7 +117,7 @@ namespace DiscordDriverBot.Interaction.Gallery
             {
                 case SearchHost.ExHentai:
                     {
-                        var result = await DiscordDriverBot.Gallery.SearchMulti.SearchExHentai(keyWord, page--);
+                        var result = await DiscordDriverBot.Gallery.SearchMulti.SearchExHentai(keyWord, page);
                         if (result == null) { await Context.Interaction.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果", true, true); return; }
                         ;
 
@@ -125,30 +126,30 @@ namespace DiscordDriverBot.Interaction.Gallery
                             EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor()
                             .WithUrl(result.SearchURL)
                             .WithTitle($"ExHentai 搜尋 `{keyWord}` 的結果如下")
-                            .WithDescription($"共 {result.SearchCount} 本，合計 {(result.SearchCount / 25) + 1} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`/gallery search ExHentai \"{keyWord}\" 頁數`");
+                            .WithDescription($"共 {result.SearchCount} 本，合計 {result.TotalPages} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`/gallery search ExHentai \"{keyWord}\" 頁數`");
                             result.BookData.Skip(row * 7).Take(7).ToList().ForEach((x) => embedBuilder.AddField(x.Title, Format.Url(x.Language, x.URL), false));
 
                             return embedBuilder;
                         }, result.BookData.Count, 7, isFollowup: true);
                         break;
                     }
-                //case SearchHost.NHentai:
-                //    {
-                //        var result = await DiscordDriverBot.Gallery.SearchMulti.SearchNHentaiAsync(keyWord, page);
-                //        if (result == null) { await Context.Interaction.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果", true, true); return; };
+                case SearchHost.NHentai:
+                    {
+                        var result = await DiscordDriverBot.Gallery.SearchMulti.SearchNHentaiAsync(keyWord, page);
+                        if (result == null) { await Context.Interaction.SendErrorAsync("搜尋失敗，可能是該關鍵字無搜尋結果", true, true); return; };
 
-                //        await Context.SendPaginatedConfirmAsync(0, (row) =>
-                //        {
-                //            EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor()
-                //            .WithUrl(result.SearchURL)
-                //            .WithTitle($"NHentai 搜尋 `{keyWord}` 的結果如下")
-                //            .WithDescription($"共 {result.SearchCount} 本，合計 {(result.SearchCount / 25) + 1} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`/gallery search NHentai \"{keyWord}\" 頁數`");
-                //            result.BookData.Skip(row * 7).Take(7).ToList().ForEach((x) => embedBuilder.AddField(x.Title, Format.Url(x.Language, x.URL), false));
+                        await Context.SendPaginatedConfirmAsync(0, (row) =>
+                        {
+                            EmbedBuilder embedBuilder = new EmbedBuilder().WithOkColor()
+                            .WithUrl(result.SearchURL)
+                            .WithTitle($"NHentai 搜尋 `{keyWord}` 的結果如下")
+                            .WithDescription($"共 {result.SearchCount} 本，合計 {result.TotalPages} 頁，目前為第 {page} 頁\n如需搜尋其他頁面請輸入以下指令\n`/gallery search NHentai \"{keyWord}\" 頁數`");
+                            result.BookData.Skip(row * 7).Take(7).ToList().ForEach((x) => embedBuilder.AddField(x.Title, Format.Url(x.Language, x.URL), false));
 
-                //            return embedBuilder;
-                //        }, result.BookData.Count, 7, isFollowup: true);
-                //        break;
-                //    }
+                            return embedBuilder;
+                        }, result.BookData.Count, 7, isFollowup: true);
+                        break;
+                    }
                 default:
                     break;
             }

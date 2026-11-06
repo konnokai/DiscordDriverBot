@@ -1,61 +1,55 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DiscordDriverBot.HttpClients.NHentai
 {
+    // nhentai 官方 API v2，規格在 https://nhentai.net/api/v2/docs
     public class NHentaiAPIClient
     {
-        Regex jsonRegex = new Regex(@"JSON\.parse\(""(?'JsonContext'{[^\""]+)");
-        HttpClient Client;
-        public NHentaiAPIClient()
+        private const string ApiBase = "https://nhentai.net/api/v2";
+
+        private static readonly HttpClient Client = CreateClient();
+
+        private readonly string _apiKey;
+
+        public NHentaiAPIClient(string apiKey = null)
         {
-            Client = new HttpClient();
+            _apiKey = apiKey;
         }
 
-        public async Task<Gallery> GetGalleryAsync(string id)
+        private static HttpClient CreateClient()
         {
-            try
-            {
-                string web = await Client.GetStringAsync($"https://nhentai.net/g/{id}");
-                var match = jsonRegex.Match(web);
-                if (match.Success)
-                {
-                    var json = UnicodeToString(match.Groups["JsonContext"].Value);
-
-                    return JsonConvert.DeserializeObject<Gallery>(json);
-                }
-
-                return null;
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            HttpClient client = new() { Timeout = TimeSpan.FromSeconds(30) };
+            // API 文件要求帶可辨識的 User-Agent
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordDriverBot/1.0 (+https://github.com/konnokai/DiscordDriverBot)");
+            return client;
         }
 
-        //http://trufflepenne.blogspot.com/2013/03/cunicode.html
-        private string UnicodeToString(string srcText)
-        {
-            string dst = "";
-            string src = srcText;
-            int len = srcText.Length / 6;
+        public Task<Gallery> GetGalleryAsync(string id)
+            => GetAsync<Gallery>($"/galleries/{id}");
 
-            for (int i = 0; i <= len - 1; i++)
-            {
-                string str = "";
-                str = src.Substring(0, 6).Substring(2);
-                src = src.Substring(6);
-                byte[] bytes = new byte[2];
-                bytes[1] = byte.Parse(int.Parse(str.Substring(0, 2), System.Globalization.NumberStyles.HexNumber).ToString());
-                bytes[0] = byte.Parse(int.Parse(str.Substring(2, 2), System.Globalization.NumberStyles.HexNumber).ToString());
-                dst += Encoding.Unicode.GetString(bytes);
-            }
-            return dst;
+        public Task<GallerySearch> SearchAsync(string keyword, int page = 1)
+            => GetAsync<GallerySearch>($"/search?query={Uri.EscapeDataString(keyword)}&page={page}");
+
+        private async Task<T> GetAsync<T>(string path)
+        {
+            using HttpRequestMessage request = new(HttpMethod.Get, ApiBase + path);
+
+            // 有 Key 額度比較高（搜尋 10→20 次/分），沒填就維持匿名
+            if (!string.IsNullOrWhiteSpace(_apiKey))
+                request.Headers.Add("Authorization", $"Key {_apiKey}");
+
+            using HttpResponseMessage response = await Client.SendAsync(request);
+
+            // 404 交給呼叫端當「找不到本子」，不要當例外
+            if (response.StatusCode == HttpStatusCode.NotFound) return default;
+
+            response.EnsureSuccessStatusCode();
+            return JsonConvert.DeserializeObject<T>(await response.Content.ReadAsStringAsync());
         }
     }
 
@@ -64,17 +58,11 @@ namespace DiscordDriverBot.HttpClients.NHentai
         [JsonProperty("id")]
         public long Id { get; set; }
 
-        [JsonProperty("media_id")]
-        public long MediaId { get; set; }
-
         [JsonProperty("title")]
         public Title Title { get; set; }
 
-        [JsonProperty("images")]
-        public Images Images { get; set; }
-
-        [JsonProperty("scanlator")]
-        public string Scanlator { get; set; }
+        [JsonProperty("thumbnail")]
+        public CoverInfo Thumbnail { get; set; }
 
         [JsonProperty("upload_date")]
         public long UploadDate { get; set; }
@@ -89,31 +77,19 @@ namespace DiscordDriverBot.HttpClients.NHentai
         public long NumFavorites { get; set; }
     }
 
-    public class Images
+    public class CoverInfo
     {
-        [JsonProperty("pages")]
-        public List<Cover> Pages { get; set; }
+        [JsonProperty("path")]
+        public string Path { get; set; }
 
-        [JsonProperty("cover")]
-        public Cover Cover { get; set; }
+        [JsonProperty("width")]
+        public long Width { get; set; }
 
-        [JsonProperty("thumbnail")]
-        public Cover Thumbnail { get; set; }
+        [JsonProperty("height")]
+        public long Height { get; set; }
     }
 
-    public class Cover
-    {
-        [JsonProperty("t")]
-        public string T { get; set; }
-
-        [JsonProperty("w")]
-        public long W { get; set; }
-
-        [JsonProperty("h")]
-        public long H { get; set; }
-    }
-
-    public partial class Tag
+    public class Tag
     {
         [JsonProperty("id")]
         public long Id { get; set; }
@@ -141,5 +117,44 @@ namespace DiscordDriverBot.HttpClients.NHentai
 
         [JsonProperty("pretty")]
         public string Pretty { get; set; }
+    }
+
+    public class GallerySearch
+    {
+        [JsonProperty("result")]
+        public List<GalleryListItem> Result { get; set; }
+
+        [JsonProperty("num_pages")]
+        public int NumPages { get; set; }
+
+        [JsonProperty("per_page")]
+        public int PerPage { get; set; }
+
+        [JsonProperty("total")]
+        public int? Total { get; set; }
+    }
+
+    public class GalleryListItem
+    {
+        [JsonProperty("id")]
+        public long Id { get; set; }
+
+        [JsonProperty("english_title")]
+        public string EnglishTitle { get; set; }
+
+        [JsonProperty("japanese_title")]
+        public string JapaneseTitle { get; set; }
+
+        [JsonProperty("thumbnail")]
+        public string Thumbnail { get; set; }
+
+        [JsonProperty("num_pages")]
+        public int NumPages { get; set; }
+
+        [JsonProperty("num_favorites")]
+        public int NumFavorites { get; set; }
+
+        [JsonProperty("tag_ids")]
+        public List<long> TagIds { get; set; } = new();
     }
 }

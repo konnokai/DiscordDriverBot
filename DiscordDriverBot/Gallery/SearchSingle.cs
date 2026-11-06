@@ -1,6 +1,8 @@
 ﻿using DiscordDriverBot.HttpClients;
+using DiscordDriverBot.HttpClients.NHentai;
 using HtmlAgilityPack;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace DiscordDriverBot.Gallery
@@ -11,49 +13,38 @@ namespace DiscordDriverBot.Gallery
         {
             url = ""; language = "";
 
+            if (string.IsNullOrWhiteSpace(bookName)) return false;
+
             try
             {
-                HtmlWeb htmlWeb = new HtmlWeb();
-                var htmlDocumentNode = htmlWeb.Load(string.Format("https://nhentai.net/search/?q={0}", bookName)).DocumentNode.Descendants().Where((x) => x.Name == "div" && x.HasClass("gallery"));
-                foreach (HtmlNode item in htmlDocumentNode)
-                {
-                    if (item.Descendants().First((x) => x.HasClass("caption")).InnerText.FormatBookName() == bookName)
-                    {
-                        if (item.Attributes.Any((x) => x.Name == "data-tags" && x.Value.Contains("29963")))
-                        {
-                            url = "https://nhentai.net" + item.FirstChild.Attributes["href"].Value;
-                            language = "中文";
-                            break;
-                        }
-                        else if (item.Attributes.Any((x) => x.Name == "data-tags" && x.Value.Contains("6346")))
-                        {
-                            url = "https://nhentai.net" + item.FirstChild.Attributes["href"].Value;
-                            language = "日文";
-                        }
-                    }
-                }
+                List<GalleryListItem> results = Program.NHentaiAPIClient.SearchAsync(bookName).Result?.Result;
+                if (results == null || results.Count == 0) return false;
 
-                if (url == "")
-                {
-                    foreach (HtmlNode item in htmlDocumentNode)
-                    {
-                        if (item.Attributes.Any((x) => x.Name == "data-tags" && x.Value.Contains("29963")))
-                        {
-                            url = "https://nhentai.net" + item.FirstChild.Attributes["href"].Value;
-                            language = "中文";
-                            break;
-                        }
-                        else if (item.Attributes.Any((x) => x.Name == "data-tags" && x.Value.Contains("6346")))
-                        {
-                            url = "https://nhentai.net" + item.FirstChild.Attributes["href"].Value;
-                            language = "日文";
-                        }
-                    }
-                }
+                // 先比對書名，找不到再退回搜尋結果裡有中文或日文 tag 的
+                List<GalleryListItem> candidates = results
+                    .Where((x) => x.EnglishTitle.FormatBookName() == bookName || (x.JapaneseTitle ?? "").FormatBookName() == bookName)
+                    .ToList();
+
+                GalleryListItem pick = Pick(candidates) ?? Pick(results);
+                if (pick == null) return false;
+
+                url = $"https://nhentai.net/g/{pick.Id}/";
+                language = GetLanguage(pick.TagIds);
+                return true;
             }
-            catch (Exception) { }
+            catch (Exception) { return false; }
 
-            return url != "" && language != "";
+            static GalleryListItem Pick(List<GalleryListItem> items)
+                => items.FirstOrDefault((x) => x.TagIds.Contains(29963)) ?? items.FirstOrDefault((x) => x.TagIds.Contains(6346));
+        }
+
+        // nhentai 的語言 tag id：29963 中文、12227 英文、6346 日文
+        public static string GetLanguage(List<long> tagIds)
+        {
+            if (tagIds.Contains(29963)) return "中文";
+            if (tagIds.Contains(12227)) return "英文";
+            if (tagIds.Contains(6346)) return "日文";
+            return "其他";
         }
 
         public static bool SearchWnacg(string bookName, out string url, out string language)

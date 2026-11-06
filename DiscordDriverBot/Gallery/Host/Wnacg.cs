@@ -104,15 +104,14 @@ namespace DiscordDriverBot.Gallery.Host
 
                 Log.New($"{thumbnailURL} ({bookName})");
 
-                EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
-                    .WithOkColor()
-                    .WithTitle(title)
-                    .WithUrl(string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID))
-                    .WithDescription(description)
-                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                GalleryCard card = GalleryMessage.Card()
+                    .WithHeader(title, string.Format("https://www.wnacg.com/photos-index-aid-{0}.html", ID), guild.Id == 463657254105645056 ? null : thumbnailURL);
+
+                if (!string.IsNullOrWhiteSpace(description))
+                    card.Text(description);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value), item.Key == "標籤:" ? false : true);
+                    card.WithField(item.Key, string.Join(", ", item.Value));
 
                 SearchSingle.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
                 SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
@@ -120,20 +119,17 @@ namespace DiscordDriverBot.Gallery.Host
 
                 if (ExHentaiUrl != "" || nHentaiUrl != "")
                 {
-                    discordEmbedBuilder.AddField("其他網站(不一定正確):",
+                    card.WithField("其他網站(不一定正確):",
                         (E_HentaiUrl != "" ? string.Format("[E-站({0})]({1})\t", E_HentaiLanguage, E_HentaiUrl) : "") +
                         (ExHentaiUrl != "" ? string.Format("[Ex站({0})]({1})\t", ExHentaiLanguage, ExHentaiUrl) : "") +
-                        (nHentaiUrl != "" ? string.Format("[N站({0})]({1})", nHentaiLanguage, nHentaiUrl) : ""), true);
+                        (nHentaiUrl != "" ? string.Format("[N站({0})]({1})", nHentaiLanguage, nHentaiUrl) : ""));
                 }
-                else discordEmbedBuilder.AddField("其他網站:", "無", true);
+                else card.WithField("其他網站:", "無");
 
-                if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
-                discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
+                if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
+                card.WithFooter(user);
 
-                if (interactionContext == null)
-                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
-                else
-                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+                await card.SendAsync(messageChannel, interactionContext);
 
                 return true;
             }

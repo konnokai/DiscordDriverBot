@@ -63,27 +63,44 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                     Log.Error(ex, "取得 Pixiv 使用者插畫失敗");
                 }
 
-                EmbedBuilder discordEmbedBuilder = new EmbedBuilder().WithOkColor()
-                    .WithTitle(userData.Body.Name)
-                    .WithUrl($"https://www.pixiv.net/users/{id}")
-                    .WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
+                GalleryCard card = GalleryMessage.Card();
 
-                if (!string.IsNullOrWhiteSpace(userData.Body.Comment))
-                    discordEmbedBuilder.WithDescription(Truncate(userData.Body.Comment, 4000));
+                // 個人頁橫幅就是 pixiv 網站版最上面那張，Discord 自己的連結預覽也是抓這張
+                string banner = GetProxyImageUrl(userData.Body.Background?.Url);
+                if (banner != null && guild.Id != 463657254105645056)
+                    card.WithMediaGallery(new MediaGalleryBuilder().AddItem(banner));
 
                 string avatar = GetProxyImageUrl(userData.Body.ImageBig) ?? GetProxyImageUrl(userData.Body.Image);
-                if (avatar != null && guild.Id != 463657254105645056) discordEmbedBuilder.WithThumbnailUrl(avatar);
+                card.WithHeader(userData.Body.Name, $"https://www.pixiv.net/users/{id}", guild.Id == 463657254105645056 ? null : avatar);
 
-                if (!string.IsNullOrWhiteSpace(userData.Body.Webpage))
-                    discordEmbedBuilder.AddField("其他網站", Truncate(userData.Body.Webpage, 1024), true);
+                if (!string.IsNullOrWhiteSpace(userData.Body.Comment))
+                    card.Text(userData.Body.Comment);
+
+                card.WithField("其他網站", userData.Body.Webpage);
 
                 if (works.Count > 0)
-                    discordEmbedBuilder.AddField("最新插畫", string.Join("\n", works.Select((x) => $"[{EscapeTitle(x.Title)}](https://www.pixiv.net/artworks/{x.Id})")), false);
+                {
+                    card.Text("**最新插畫**");
 
-                if (interactionContext == null)
-                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build(), allowedMentions: AllowedMentions.None);
-                else
-                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build(), allowedMentions: AllowedMentions.None);
+                    // 這個伺服器不顯示任何圖，其他頻道則是 NSFW 才給 R-18 縮圖
+                    if (guild.Id != 463657254105645056)
+                    {
+                        bool isNsfw = ((ITextChannel)messageChannel).IsNsfw;
+                        MediaGalleryBuilder gallery = new MediaGalleryBuilder();
+                        foreach (PixivWork work in works.Where((x) => isNsfw || x.XRestrict == 0))
+                        {
+                            string thumbnail = GetProxyImageUrl(work.Url);
+                            if (thumbnail != null) gallery.AddItem(thumbnail, work.Title);
+                        }
+                        card.WithMediaGallery(gallery);
+                    }
+
+                    card.Text(string.Join("\n",
+                        works.Select((x) => $"[{x.Title.EscapeLinkText()}](https://www.pixiv.net/artworks/{x.Id})")));
+                }
+
+                card.WithFooter(user);
+                await card.SendAsync(messageChannel, interactionContext);
 
                 return true;
             }
@@ -143,31 +160,29 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
 
             Log.New($"{thumbnailURL}");
 
-            EmbedBuilder discordEmbedBuilder = new EmbedBuilder().WithOkColor()
-                .WithTitle(title)
-                .WithDescription(description)
-                .WithUrl(string.Format("https://www.pixiv.net/artworks/{0}", id))
-                .AddField("標籤", string.Join(", ", tags), true);
-
+            string headerThumbnail = null;
             if (guild.Id != 463657254105645056)
             {
-                if (tags.Contains("R-18"))
-                {
-                    if (((ITextChannel)messageChannel).IsNsfw) discordEmbedBuilder.WithThumbnailUrl(thumbnailURL);
-                    else discordEmbedBuilder.WithThumbnailUrl("https://s.pximg.net/www/images/pixiv_logo.gif");
-                }
-                else discordEmbedBuilder.WithThumbnailUrl(thumbnailURL);
+                bool isR18 = tags.Contains("R-18") || tags.Contains("R-18G");
+                headerThumbnail = isR18 && !((ITextChannel)messageChannel).IsNsfw
+                    ? "https://s.pximg.net/www/images/pixiv_logo.gif"
+                    : thumbnailURL;
             }
 
-            if (bookData != null) discordEmbedBuilder.AddField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過", true);
-            discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
+            GalleryCard card = GalleryMessage.Card()
+                .WithHeader(title, string.Format("https://www.pixiv.net/artworks/{0}", id), headerThumbnail);
+
+            if (!string.IsNullOrWhiteSpace(description))
+                card.Text(description);
+
+            card.WithField("標籤", string.Join(", ", tags));
+
+            if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
+            card.WithFooter(user);
 
             try
             {
-                if (interactionContext == null)
-                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
-                else
-                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+                await card.SendAsync(messageChannel, interactionContext);
             }
             catch (Exception ex)
             {
@@ -269,20 +284,6 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                 await messageChannel.SendErrorAsync(message);
             else
                 await interactionContext.Interaction.FollowupAsync(message, ephemeral: true);
-        }
-
-        private static string Truncate(string value, int max)
-        {
-            if (string.IsNullOrEmpty(value) || value.Length <= max) return value;
-
-            int length = max;
-            if (char.IsHighSurrogate(value[length - 1])) length--;
-            return value[..length] + "…";
-        }
-
-        private static string EscapeTitle(string title)
-        {
-            return (title ?? string.Empty).Replace("[", "［").Replace("]", "］").Replace("\r", "").Replace("\n", " ");
         }
     }
 }

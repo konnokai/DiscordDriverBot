@@ -64,6 +64,7 @@ namespace DiscordDriverBot
             if (!string.IsNullOrEmpty(BotConfig.GitHubApiKey))
                 gitHubClient.Credentials = new Credentials(BotConfig.GitHubApiKey);
             EHentaiAPIClient = new EHentaiAPIClient();
+            NHentaiAPIClient = new HttpClients.NHentai.NHentaiAPIClient(BotConfig.NHentaiApiKey);
 
             timerUpdateStatus = new Timer(async (_) => await ChangeStatusAsync());
             timerCheckTranUpdate = new Timer(async (_) => await TimerHandlerAsync());

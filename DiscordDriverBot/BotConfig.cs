@@ -19,6 +19,9 @@ public class BotConfig
     public string? GitHubApiKey { get; set; } = default;
 
     [NotRequirement]
+    public string? NHentaiApiKey { get; set; } = default;
+
+    [NotRequirement]
     public bool MessageContentIntent { get; set; } = false;
 
     [NotRequirement]
@@ -122,12 +125,19 @@ public class BotConfig
                     Log.Warn("如需註冊請至 https://github.com/settings/tokens 中新增 (不須設定 Scope)");
                 }
 
+                if (string.IsNullOrWhiteSpace(config.NHentaiApiKey))
+                {
+                    Log.Warn("NHentaiApiKey 遺失，將使用匿名額度 (搜尋 10 次/分)，可能會遇到 Rate limit");
+                    Log.Warn("如需註冊請至 https://nhentai.net/user/settings#apikeys 中新增");
+                }
+
                 DiscordToken = config.DiscordToken;
                 WebHookUrl = config.WebHookUrl;
                 ExHentaiCookieMemberId = config.ExHentaiCookieMemberId;
                 ExHentaiCookiePassHash = config.ExHentaiCookiePassHash;
                 ExHentaiCookieSK = config.ExHentaiCookieSK;
                 GitHubApiKey = config.GitHubApiKey;
+                NHentaiApiKey = config.NHentaiApiKey;
                 SauceNAOApiKey = config.SauceNAOApiKey;
                 MessageContentIntent = config.MessageContentIntent;
                 TestSlashCommandGuildId = config.TestSlashCommandGuildId;

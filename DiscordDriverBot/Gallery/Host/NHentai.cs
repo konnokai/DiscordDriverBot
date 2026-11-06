@@ -14,12 +14,13 @@ namespace DiscordDriverBot.Gallery.Host
             if (link.Kind != GalleryLinkKind.Gallery) return false;
 
             string ID = link.Id;
+
             try
             {
                 string thumbnailURL, title, japanTitle, bookName;
                 Dictionary<string, List<string>> dicTag;
 
-                if (SQLite.SQLiteFunction.GetBookData(string.Format("https://nhentai.net/g/{0}", ID), out SQLite.Table.BookData bookData))
+                if (SQLite.SQLiteFunction.GetBookData($"https://nhentai.net/g/{ID}", out SQLite.Table.BookData bookData))
                 {
                     thumbnailURL = bookData.ThumbnailUrl;
                     title = bookData.Title;
@@ -35,13 +36,13 @@ namespace DiscordDriverBot.Gallery.Host
                     if (gallery == null)
                     {
                         if (interactionContext == null)
-                            await messageChannel.SendErrorAsync($"{user.Mention} ID {ID.Split(new char[] { '.' })[0]} 不存在本子");
+                            await messageChannel.SendErrorAsync($"{user.Mention} ID {ID} 不存在本子");
                         else
-                            await interactionContext.Interaction.FollowupAsync($"ID {ID.Split(new char[] { '.' })[0]} 不存在本子", ephemeral: true);
+                            await interactionContext.Interaction.FollowupAsync($"ID {ID} 不存在本子", ephemeral: true);
                         return false;
                     }
 
-                    thumbnailURL = $"https://t3.nhentai.net/galleries/{gallery.MediaId}/cover.jpg";
+                    thumbnailURL = $"https://t3.nhentai.net/{gallery.Thumbnail.Path}";
                     title = gallery.Title.English;
                     japanTitle = gallery.Title.Japanese;
                     bookName = (gallery.Title.Pretty ?? gallery.Title.Japanese ?? gallery.Title.English).FormatBookName();
@@ -58,20 +59,19 @@ namespace DiscordDriverBot.Gallery.Host
                             dicTag[item.Type].Add(item.Name + $" ({item.Count})");
                     }
 
-                    new SQLite.Table.BookData(string.Format("https://nhentai.net/g/{0}", ID), title, japanTitle, thumbnailURL, dicTag).InsertNewData();
+                    new SQLite.Table.BookData($"https://nhentai.net/g/{ID}", title, japanTitle, thumbnailURL, dicTag).InsertNewData();
                 }
 
                 Log.New($"{thumbnailURL} ({bookName})");
 
-                EmbedBuilder discordEmbedBuilder = new EmbedBuilder()
-                    .WithOkColor()
-                    .WithTitle(title)
-                    .WithDescription(japanTitle)
-                    .WithUrl(string.Format("https://nhentai.net/g/{0}", ID))
-                    .WithThumbnailUrl(guild.Id == 463657254105645056 ? "" : thumbnailURL);
+                GalleryCard card = GalleryMessage.Card()
+                    .WithHeader(title, $"https://nhentai.net/g/{ID}", guild.Id == 463657254105645056 ? null : thumbnailURL);
+
+                if (!string.IsNullOrWhiteSpace(japanTitle))
+                    card.Text(japanTitle);
 
                 foreach (var item in dicTag)
-                    discordEmbedBuilder.AddField(item.Key, string.Join(", ", item.Value.Take(30)), true);
+                    card.WithField(item.Key, string.Join(", ", item.Value.Take(30)));
 
                 SearchSingle.SearchE_Hentai(bookName, out string E_HentaiUrl, out string E_HentaiLanguage);
                 SearchSingle.SearchExHentai(bookName, out string ExHentaiUrl, out string ExHentaiLanguage);
@@ -79,19 +79,17 @@ namespace DiscordDriverBot.Gallery.Host
 
                 if (ExHentaiUrl != "" || wnacgUrl != "")
                 {
-                    discordEmbedBuilder.AddField("其他網站(不一定正確):",
+                    card.WithField("其他網站(不一定正確):",
                         (E_HentaiUrl != "" ? string.Format("[E-站({0})]({1})\t", E_HentaiLanguage, E_HentaiUrl) : "") +
                         (ExHentaiUrl != "" ? string.Format("[Ex站({0})]({1})\t", ExHentaiLanguage, ExHentaiUrl) : "") +
-                        (wnacgUrl != "" ? string.Format("[W站({0})]({1})", wnacgLanguage, wnacgUrl) : ""), true);
+                        (wnacgUrl != "" ? string.Format("[W站({0})]({1})", wnacgLanguage, wnacgUrl) : ""));
                 }
-                else discordEmbedBuilder.AddField("其他網站:", "無", true);
+                else card.WithField("其他網站:", "無");
 
-                if (bookData != null) discordEmbedBuilder.AddField("被看過了", $"{bookData.DateTime.Replace("T", " ")} 被其他人看過", true);
-                discordEmbedBuilder.WithFooter(user.Username + " ID: " + user.Id, user.GetAvatarUrl());
-                if (interactionContext == null)
-                    await messageChannel.SendMessageAsync(embed: discordEmbedBuilder.Build());
-                else
-                    await interactionContext.Interaction.FollowupAsync(embed: discordEmbedBuilder.Build());
+                if (bookData != null) card.WithField("被看過了", $"{bookData.DateTime.Replace("T", " ")} 被其他人看過");
+                card.WithFooter(user);
+
+                await card.SendAsync(messageChannel, interactionContext);
 
                 return true;
             }
@@ -105,6 +103,17 @@ namespace DiscordDriverBot.Gallery.Host
                         .WithErrorColor()
                         .WithDescription($"你在 {guild.Name}/{messageChannel.Name} 使用到了Bot的功能，但Bot無讀取&發言&嵌入連結權限\n請向管理員要求提供Bot權限")
                         .Build());
+                }
+                else if (ex.Message.Contains("429"))
+                {
+                    var embed = new EmbedBuilder()
+                        .WithErrorColor()
+                        .WithDescription($"NHentai API 要求太頻繁，請稍後再試")
+                        .Build();
+                    if (interactionContext == null)
+                        await messageChannel.SendMessageAsync(embed: embed);
+                    else
+                        await interactionContext.Interaction.FollowupAsync(embed: embed);
                 }
                 else if (ex.Message.Contains("503"))
                 {

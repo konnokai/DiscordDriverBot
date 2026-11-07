@@ -37,8 +37,8 @@ namespace DiscordDriverBot.Gallery
             string byline = string.IsNullOrWhiteSpace(creator) ? "" : $"-# {creator.EscapeLinkText()}\n";
 
             string text = string.IsNullOrWhiteSpace(url)
-                ? $"{byline}## {title.EscapeLinkText()}"
-                : $"{byline}## [{title.EscapeLinkText()}]({url})";
+                ? $"{byline}{title.EscapeLinkText()}"
+                : $"{byline}[{title.EscapeLinkText()}]({url})";
 
             return AddText(text, thumbnailUrl);
         }

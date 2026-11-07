@@ -77,7 +77,7 @@ if (root.Components.Count == 3)
 {
     SectionComponent header = root.Components.First() as SectionComponent;
     Check("header section", header != null);
-    Check("header text", (header.Components.First() as TextDisplayComponent)?.Content == "## [［C99］ 長離](https://www.pixiv.net/artworks/151654634)");
+    Check("header text", (header.Components.First() as TextDisplayComponent)?.Content == "[［C99］ 長離](https://www.pixiv.net/artworks/151654634)");
     Check("header thumbnail", (header.Accessory as ThumbnailComponent)?.Media.Url == "https://i.pximg.net/thumb.jpg");
 
     Check("field text", (root.Components.ElementAt(1) as TextDisplayComponent)?.Content == "**標籤**\n長離, 鳴潮");
@@ -90,12 +90,12 @@ Check("escape link text", "[a]\n[b]".EscapeLinkText() == "［a］ ［b］");
 // 沒有縮圖時不能產生 Section，不然 Discord 會退件
 GalleryCard plain = GalleryMessage.Card().WithHeader("沒有縮圖", "https://example.com/1");
 ContainerComponent plainRoot = plain.Build().Components.Single() as ContainerComponent;
-Check("header without thumbnail", (plainRoot.Components.Single() as TextDisplayComponent)?.Content == "## [沒有縮圖](https://example.com/1)");
+Check("header without thumbnail", (plainRoot.Components.Single() as TextDisplayComponent)?.Content == "[沒有縮圖](https://example.com/1)");
 
 // 作者放在標題上方，footer 留給觸發者
 GalleryCard byline = GalleryMessage.Card().WithHeader("標題", null, null, "かぼみーる");
 Check("creator byline", (byline.Build().Components.Single() as ContainerComponent).Components
-    .Cast<TextDisplayComponent>().Single().Content == "-# かぼみーる\n## 標題");
+    .Cast<TextDisplayComponent>().Single().Content == "-# かぼみーる\n標題");
 
 // 連結文字是網址時 Discord 會把整串 markdown 原文照印，Text() 要換成網域
 GalleryCard urlCard = GalleryMessage.Card()

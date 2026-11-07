@@ -114,15 +114,23 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
 
         private static async Task<bool> GetIllustData(int id, IGuild guild, IMessageChannel messageChannel, IUser user, IInteractionContext interactionContext)
         {
-            string thumbnailURL, title, description;
+            string title, description, creator;
             List<string> tags;
+            List<string> imageUrls;
 
             if (SQLite.SQLiteFunction.GetBookData($"https://www.pixiv.net/artworks/{id}", out SQLite.Table.BookData bookData))
             {
                 title = bookData.Title;
                 description = bookData.ExtensionData;
-                thumbnailURL = bookData.ThumbnailUrl;
                 tags = JsonConvert.DeserializeObject<List<string>>(bookData.Tags.Trim('"').Replace("\\", string.Empty));
+
+                // 舊快取的縮圖是 250x250 方形裁切，重抓頁面原圖才能放大顯示
+                var cachedImages = await GetImageUrlsFromPixivCatAsync(id.ToString());
+                creator = cachedImages.ArtistName;
+                imageUrls = cachedImages.Status ? ToProxyUrls(cachedImages.ImageUrls) : new();
+
+                if (imageUrls.Count == 0 && !string.IsNullOrWhiteSpace(bookData.ThumbnailUrl))
+                    imageUrls.Add(bookData.ThumbnailUrl);
             }
             else
             {
@@ -133,19 +141,19 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                     if (!result.Status)
                         throw new Exception(string.IsNullOrEmpty(result.Error) ? "找不到資料" : result.Error);
 
-                    var thumbnailUrlResult = await GetThumbnailUrlFromPixivCatAsync(id.ToString());
-                    if (!thumbnailUrlResult.Status)
-                        throw new Exception(string.IsNullOrEmpty(thumbnailUrlResult.Error) ? "找不到資料" : thumbnailUrlResult.Error);
+                    var imageUrlResult = await GetImageUrlsFromPixivCatAsync(id.ToString());
+                    if (!imageUrlResult.Status)
+                        throw new Exception(string.IsNullOrEmpty(imageUrlResult.Error) ? "找不到資料" : imageUrlResult.Error);
 
                     var converter = new Converter();
                     Body illust = result.Reslut.Body;
                     title = illust.Title;
-                    description = illust.Description;
+                    creator = imageUrlResult.ArtistName;
                     description = converter.Convert(illust.Description);
-                    thumbnailURL = GetProxyImageUrl(thumbnailUrlResult.ThumbnailUrl);
+                    imageUrls = ToProxyUrls(imageUrlResult.ImageUrls);
                     tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
 
-                    new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, thumbnailURL, tags).InsertNewData();
+                    new SQLite.Table.BookData($"https://www.pixiv.net/artworks/{id}", title, description, imageUrls.FirstOrDefault(), tags).InsertNewData();
                 }
                 catch (Exception ex)
                 {
@@ -158,19 +166,23 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                 }
             }
 
-            Log.New($"{thumbnailURL}");
+            Log.New($"{imageUrls.FirstOrDefault()}");
 
+            // 作品圖放大顯示；R-18 在一般頻道只留 Pixiv logo 當提示
+            bool showImages = guild.Id != 463657254105645056;
             string headerThumbnail = null;
-            if (guild.Id != 463657254105645056)
+            if (showImages)
             {
                 bool isR18 = tags.Contains("R-18") || tags.Contains("R-18G");
-                headerThumbnail = isR18 && !((ITextChannel)messageChannel).IsNsfw
-                    ? "https://s.pximg.net/www/images/pixiv_logo.gif"
-                    : thumbnailURL;
+                if (isR18 && !((ITextChannel)messageChannel).IsNsfw)
+                {
+                    headerThumbnail = "https://s.pximg.net/www/images/pixiv_logo.gif";
+                    showImages = false;
+                }
             }
 
             GalleryCard card = GalleryMessage.Card()
-                .WithHeader(title, string.Format("https://www.pixiv.net/artworks/{0}", id), headerThumbnail);
+                .WithHeader(title, $"https://www.pixiv.net/artworks/{id}", headerThumbnail, creator);
 
             if (!string.IsNullOrWhiteSpace(description))
                 card.Text(description);
@@ -178,6 +190,14 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
             card.WithField("標籤", string.Join(", ", tags));
 
             if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
+
+            if (showImages)
+            {
+                // 每張各自一個 MediaGallery 才會上下排、維持原比例；只放前兩張，其餘回原網站看
+                foreach (string imageUrl in imageUrls.Take(2))
+                    card.WithMediaGallery(new MediaGalleryBuilder().AddItem(imageUrl));
+            }
+
             card.WithFooter(user);
 
             try
@@ -230,7 +250,7 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
             }
         }
 
-        private static async Task<(bool Status, string ThumbnailUrl, string Error)> GetThumbnailUrlFromPixivCatAsync(string id)
+        private static async Task<(bool Status, List<string> ImageUrls, string ArtistName, string Error)> GetImageUrlsFromPixivCatAsync(string id)
         {
             var content = new FormUrlEncodedContent([new("p", id)]);
 
@@ -243,28 +263,34 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
 
                 if (pixivCat == null)
                 {
-                    return (false, null, "");
+                    return (false, null, null, "");
                 }
                 else if (!pixivCat.Success)
                 {
                     Log.Error(pixivCat.Error);
-                    return (false, null, pixivCat.Error);
+                    return (false, null, null, pixivCat.Error);
                 }
 
-                // Thumbnails欄位只有在多圖的時候會出現
-                // 感覺直接回傳OriginalUrl不太好 :thinking:
-                return (true, pixivCat.Thumbnails != null ? pixivCat.Thumbnails.First() : pixivCat.OriginalUrlProxy, "");
+                // 多圖才有 original_urls_proxy，單圖只有 original_url_proxy
+                List<string> urls = pixivCat.OriginalUrlsProxy;
+                if (urls == null || urls.Count == 0)
+                    urls = string.IsNullOrWhiteSpace(pixivCat.OriginalUrlProxy) ? new() : new() { pixivCat.OriginalUrlProxy };
+
+                return (true, urls, pixivCat.Artist?.Name, "");
             }
             catch (HttpRequestException httpEx) when (httpEx.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                return (false, null, "找不到此Id的資料，可能已被刪除");
+                return (false, null, null, "找不到此Id的資料，可能已被刪除");
             }
             catch (Exception ex)
             {
                 Log.Error(ex.ToString());
-                return (false, null, "發生了未知的錯誤");
+                return (false, null, null, "發生了未知的錯誤");
             }
         }
+
+        private static List<string> ToProxyUrls(List<string> urls) =>
+            urls.Select(GetProxyImageUrl).Where((x) => x != null).ToList();
 
         private static string GetProxyImageUrl(string url)
         {

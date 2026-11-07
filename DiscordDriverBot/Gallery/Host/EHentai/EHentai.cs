@@ -85,7 +85,7 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
                 Log.New($"{thumbnailURL} ({bookName})");
 
                 GalleryCard card = GalleryMessage.Card()
-                    .WithHeader(title, string.Format("https://exhentai.org/g/{0}/{1}/", ID, token), guild.Id == 463657254105645056 ? null : thumbnailURL);
+                    .WithHeader(title, string.Format("https://exhentai.org/g/{0}/{1}/", ID, token));
 
                 if (!string.IsNullOrWhiteSpace(japanTitle))
                     card.Text(japanTitle);
@@ -102,6 +102,10 @@ namespace DiscordDriverBot.Gallery.Host.EHentai
                     (wnacgUrl != "" ? string.Format("[W站({0})]({1})", wnacgLanguage, wnacgUrl) : ""));
 
                 if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
+
+                if (guild.Id != 463657254105645056 && !string.IsNullOrWhiteSpace(thumbnailURL))
+                    card.WithMediaGallery(new MediaGalleryBuilder().AddItem(thumbnailURL));
+
                 card.WithFooter(user);
 
                 await card.SendAsync(messageChannel, interactionContext);

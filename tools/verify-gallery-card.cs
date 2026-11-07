@@ -47,6 +47,13 @@ Check("work url", work.Url == "https://i.pximg.net/c/250x250_80_a2/img.jpg");
 Check("work xRestrict", work.XRestrict == 2);
 Check("work title", work.Title == "[C99] 長離");
 
+// pixiv.cat：多圖要拿到每一頁的原圖代理，不能只拿第一張縮圖
+PixivCat multi = JsonConvert.DeserializeObject<PixivCat>("""
+{ "success": true, "multiple": true, "artist": { "id": 1, "name": "かぼみーる" }, "original_urls_proxy": ["https://i.pixiv.cat/a.png", "https://i.pixiv.cat/b.png"] }
+""");
+Check("pixiv cat images", multi.OriginalUrlsProxy.Count == 2);
+Check("pixiv cat artist", multi.Artist?.Name == "かぼみーる");
+
 // ajax/user 的回應：個人頁橫幅
 PixivUserResponse user = JsonConvert.DeserializeObject<PixivUserResponse>("""
 { "error": false, "body": { "name": "時雨しずく", "comment": "繪畫中", "image": "https://i.pximg.net/a.png", "imageBig": "https://i.pximg.net/b.png", "webpage": "https://x.com/x", "background": { "repeat": null, "color": null, "url": "https://i.pximg.net/c/1920x960/bg.jpg", "isPrivate": false } } }
@@ -84,6 +91,25 @@ Check("escape link text", "[a]\n[b]".EscapeLinkText() == "［a］ ［b］");
 GalleryCard plain = GalleryMessage.Card().WithHeader("沒有縮圖", "https://example.com/1");
 ContainerComponent plainRoot = plain.Build().Components.Single() as ContainerComponent;
 Check("header without thumbnail", (plainRoot.Components.Single() as TextDisplayComponent)?.Content == "## [沒有縮圖](https://example.com/1)");
+
+// 作者放在標題上方，footer 留給觸發者
+GalleryCard byline = GalleryMessage.Card().WithHeader("標題", null, null, "かぼみーる");
+Check("creator byline", (byline.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().Single().Content == "-# かぼみーる\n## 標題");
+
+// 連結文字是網址時 Discord 會把整串 markdown 原文照印，Text() 要換成網域
+GalleryCard urlCard = GalleryMessage.Card()
+    .Text("差分8枚 + α\n[https://kabomeel.fanbox.cc/posts/12785485](https://kabomeel.fanbox.cc/posts/12785485)")
+    .Text("[https://fantia.jp/posts/747737](/jump.php?https%3A%2F%2Ffantia.jp%2Fposts%2F747737)")
+    .Text("[完整版](https://example.com/2)");
+string urlText = (urlCard.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().First().Content;
+Check("url label", urlText == "差分8枚 + α\n[kabomeel.fanbox.cc](https://kabomeel.fanbox.cc/posts/12785485)");
+string[] otherText = (urlCard.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().Skip(1).Select((x) => x.Content).ToArray();
+Check("jump link", otherText[0] == "[fantia.jp](https://fantia.jp/posts/747737)");
+Check("normal mask", otherText[1] == "[完整版](https://example.com/2)");
+
 
 // 所有文字加起來不能超過 CV2 的 4000 字上限
 GalleryCard longCard = GalleryMessage.Card()

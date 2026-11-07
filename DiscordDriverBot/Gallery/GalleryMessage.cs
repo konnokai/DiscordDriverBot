@@ -1,5 +1,6 @@
 using Discord;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace DiscordDriverBot.Gallery
@@ -31,16 +32,18 @@ namespace DiscordDriverBot.Gallery
         private readonly ContainerBuilder _container = new ContainerBuilder().WithAccentColor(AccentColor);
         private int _used;
 
-        public GalleryCard WithHeader(string title, string url, string thumbnailUrl = null)
+        public GalleryCard WithHeader(string title, string url, string thumbnailUrl = null, string creator = null)
         {
+            string byline = string.IsNullOrWhiteSpace(creator) ? "" : $"-# {creator.EscapeLinkText()}\n";
+
             string text = string.IsNullOrWhiteSpace(url)
-                ? $"## {title.EscapeLinkText()}"
-                : $"## [{title.EscapeLinkText()}]({url})";
+                ? $"{byline}## {title.EscapeLinkText()}"
+                : $"{byline}## [{title.EscapeLinkText()}]({url})";
 
             return AddText(text, thumbnailUrl);
         }
 
-        public GalleryCard Text(string text) => AddText(text, null);
+        public GalleryCard Text(string text) => AddText(UrlLinkText(text), null);
 
         public GalleryCard WithField(string name, string value)
         {
@@ -62,8 +65,9 @@ namespace DiscordDriverBot.Gallery
             return this;
         }
 
+        // CV2 沒有小尺寸圖片，Section 的頭像會跟作品縮圖一樣大，乾脆不放
         public GalleryCard WithFooter(IUser user)
-            => AddText($"-# {user.Username} ID: {user.Id}", user.GetAvatarUrl(), MaxTextLength);
+            => AddText($"-# {user.Username} ID: {user.Id}", null, MaxTextLength);
 
         public MessageComponent Build()
             => new ComponentBuilderV2(new[] { (IMessageComponentBuilder)_container }).Build();
@@ -95,6 +99,45 @@ namespace DiscordDriverBot.Gallery
                     .WithAccessory(new ThumbnailBuilder(new UnfurledMediaItemProperties(thumbnailUrl))));
 
             return this;
+        }
+
+        // 連結文字本身就是網址時 Discord 會防釣魚，整串 [網址](網址) 原文照印，改成顯示網域
+        private static readonly Regex UrlLink = new(@"\[https?://[^\]\s]+\]\((?<target>[^)\s]+)\)", RegexOptions.IgnoreCase);
+        private static readonly Regex EmbeddedUrl = new(@"https?://[^\s""'<>]+", RegexOptions.IgnoreCase);
+
+        private static string UrlLinkText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            return UrlLink.Replace(text, (match) =>
+            {
+                string url = ResolveLinkTarget(match.Groups["target"].Value);
+                return url == null ? match.Value : $"[{new Uri(url).Host}]({url})";
+            });
+        }
+
+        // Pixiv 把站外連結換成 /jump.php?https%3A%2F%2F...，要還原成真正的網址才點得動
+        private static string ResolveLinkTarget(string target)
+        {
+            if (Uri.TryCreate(target, UriKind.Absolute, out Uri absolute))
+            {
+                return absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps
+                    ? absolute.AbsoluteUri
+                    : null;
+            }
+
+            string decoded;
+            try
+            {
+                decoded = Uri.UnescapeDataString(target);
+            }
+            catch (UriFormatException)
+            {
+                return null;
+            }
+
+            Match embedded = EmbeddedUrl.Match(decoded);
+            return embedded.Success && Uri.TryCreate(embedded.Value, UriKind.Absolute, out Uri url) ? url.AbsoluteUri : null;
         }
 
         private static string Truncate(string text, int max)

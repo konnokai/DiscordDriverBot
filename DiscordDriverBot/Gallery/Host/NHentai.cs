@@ -65,7 +65,7 @@ namespace DiscordDriverBot.Gallery.Host
                 Log.New($"{thumbnailURL} ({bookName})");
 
                 GalleryCard card = GalleryMessage.Card()
-                    .WithHeader(title, $"https://nhentai.net/g/{ID}", guild.Id == 463657254105645056 ? null : thumbnailURL);
+                    .WithHeader(title, $"https://nhentai.net/g/{ID}");
 
                 if (!string.IsNullOrWhiteSpace(japanTitle))
                     card.Text(japanTitle);
@@ -87,6 +87,10 @@ namespace DiscordDriverBot.Gallery.Host
                 else card.WithField("其他網站:", "無");
 
                 if (bookData != null) card.WithField("被看過了", $"{bookData.DateTime.Replace("T", " ")} 被其他人看過");
+
+                if (guild.Id != 463657254105645056 && !string.IsNullOrWhiteSpace(thumbnailURL))
+                    card.WithMediaGallery(new MediaGalleryBuilder().AddItem(thumbnailURL));
+
                 card.WithFooter(user);
 
                 await card.SendAsync(messageChannel, interactionContext);

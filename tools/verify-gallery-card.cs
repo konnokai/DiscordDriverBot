@@ -110,6 +110,13 @@ string[] otherText = (urlCard.Build().Components.Single() as ContainerComponent)
 Check("jump link", otherText[0] == "[fantia.jp](https://fantia.jp/posts/747737)");
 Check("normal mask", otherText[1] == "[完整版](https://example.com/2)");
 
+// Linux 會把開頭單一 / 當成 Unix 路徑；不能因為 target 看起來是絕對路徑就放棄解開
+GalleryCard fileJump = GalleryMessage.Card()
+    .Text("[https://x.com/uduki_81](file:///jump.php?https%3A%2F%2Fx.com%2Fuduki_81)");
+string fileJumpText = (fileJump.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().Single().Content;
+Check("file jump link", fileJumpText == "[x.com](https://x.com/uduki_81)");
+
 
 // 所有文字加起來不能超過 CV2 的 4000 字上限
 GalleryCard longCard = GalleryMessage.Card()

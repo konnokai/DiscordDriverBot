@@ -170,13 +170,6 @@ namespace DiscordDriverBot.Gallery
         // Pixiv 把站外連結換成 /jump.php?https%3A%2F%2F...，要還原成真正的網址才點得動
         private static string ResolveLinkTarget(string target)
         {
-            if (Uri.TryCreate(target, UriKind.Absolute, out Uri absolute))
-            {
-                return absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps
-                    ? absolute.AbsoluteUri
-                    : null;
-            }
-
             string decoded;
             try
             {
@@ -187,8 +180,12 @@ namespace DiscordDriverBot.Gallery
                 return null;
             }
 
+            // 先解開再找裡面的網址；絕對網址也會被同一個 regex 抓到
+            // 不能先 Uri.TryCreate(target, Absolute)：Linux 會把 /jump.php 當成 Unix 路徑而提前回 null
             Match embedded = EmbeddedUrl.Match(decoded);
-            return embedded.Success && Uri.TryCreate(embedded.Value, UriKind.Absolute, out Uri url) ? url.AbsoluteUri : null;
+            if (!embedded.Success || !Uri.TryCreate(embedded.Value, UriKind.Absolute, out Uri url)) return null;
+
+            return url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps ? url.AbsoluteUri : null;
         }
 
         private static string Truncate(string text, int max)

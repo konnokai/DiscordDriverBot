@@ -1,10 +1,12 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using DiscordDriverBot.Command;
 using Html2Markdown;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -117,20 +119,28 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
             string title, description, creator;
             List<string> tags;
             List<string> imageUrls;
+            DateTimeOffset? uploaded = null;
 
             if (SQLite.SQLiteFunction.GetBookData($"https://www.pixiv.net/artworks/{id}", out SQLite.Table.BookData bookData))
             {
                 title = bookData.Title;
-                description = bookData.ExtensionData;
+                description = bookData.ExtensionData.CleanText();
                 tags = JsonConvert.DeserializeObject<List<string>>(bookData.Tags.Trim('"').Replace("\\", string.Empty));
 
                 // 舊快取的縮圖是 250x250 方形裁切，重抓頁面原圖才能放大顯示
-                var cachedImages = await GetImageUrlsFromPixivCatAsync(id.ToString());
+                // 快取沒有上傳時間，順便補抓 ajax；失敗就只是不顯示
+                Task<(bool Status, List<string> ImageUrls, string ArtistName, string Error)> imagesTask = GetImageUrlsFromPixivCatAsync(id.ToString());
+                Task<DateTimeOffset?> dateTask = GetUploadDateAsync(id);
+                await Task.WhenAll(imagesTask, dateTask);
+
+                var cachedImages = await imagesTask;
                 creator = cachedImages.ArtistName;
                 imageUrls = cachedImages.Status ? ToProxyUrls(cachedImages.ImageUrls) : new();
 
                 if (imageUrls.Count == 0 && !string.IsNullOrWhiteSpace(bookData.ThumbnailUrl))
                     imageUrls.Add(bookData.ThumbnailUrl);
+
+                uploaded = await dateTask;
             }
             else
             {
@@ -149,7 +159,8 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                     Body illust = result.Reslut.Body;
                     title = illust.Title;
                     creator = imageUrlResult.ArtistName;
-                    description = converter.Convert(illust.Description);
+                    description = converter.Convert(illust.Description).CleanText();
+                    uploaded = illust.CreateDate == default ? null : illust.CreateDate;
                     imageUrls = ToProxyUrls(imageUrlResult.ImageUrls);
                     tags = illust.Tags.Tags.Select((x) => x.Tag).ToList();
 
@@ -181,28 +192,23 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
                 }
             }
 
-            GalleryCard card = GalleryMessage.Card()
-                .WithHeader(title, $"https://www.pixiv.net/artworks/{id}", headerThumbnail, creator);
-
-            if (!string.IsNullOrWhiteSpace(description))
-                card.Text(description);
-
-            card.WithField("標籤", string.Join(", ", tags));
-
-            if (bookData != null) card.WithField("被看過了", bookData.DateTime.Replace("T", " ") + " 被其他人看過");
-
-            if (showImages)
+            PixivCard card = new()
             {
-                // 每張各自一個 MediaGallery 才會上下排、維持原比例；只放前兩張，其餘回原網站看
-                foreach (string imageUrl in imageUrls.Take(2))
-                    card.WithMediaGallery(new MediaGalleryBuilder().AddItem(imageUrl));
-            }
-
-            card.WithFooter(user);
+                Title = title,
+                Url = $"https://www.pixiv.net/artworks/{id}",
+                Thumbnail = headerThumbnail,
+                Creator = creator,
+                Description = description,
+                Tags = TagLinks(tags),
+                Uploaded = uploaded?.ToString("yyyy/MM/dd HH:mm", CultureInfo.InvariantCulture),
+                Viewed = bookData == null ? null : bookData.DateTime.Replace("T", " ") + " 被其他人看過",
+                Images = showImages ? imageUrls : new(),
+                User = user,
+            };
 
             try
             {
-                await card.SendAsync(messageChannel, interactionContext);
+                await BuildCard(Remember(card), 1).SendAsync(messageChannel, interactionContext);
             }
             catch (Exception ex)
             {
@@ -218,6 +224,129 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
             }
 
             return true;
+        }
+
+        private sealed class PixivCard
+        {
+            public string Token;
+            public string Title;
+            public string Url;
+            public string Thumbnail;
+            public string Creator;
+            public string Description;
+            public string Tags;
+            public string Uploaded;
+            public string Viewed;
+            public List<string> Images;
+            public IUser User;
+        }
+
+        private const string PagerPrefix = "pixiv-page";
+
+        // 按鈕只帶短 token，圖片清單留在記憶體
+        private static readonly Dictionary<string, PixivCard> PagerCards = new();
+        private static readonly Queue<string> PagerOrder = new();
+
+        private static string TagLinks(IEnumerable<string> tags) =>
+            string.Join(", ", tags
+                .Where((x) => !string.IsNullOrWhiteSpace(x))
+                .Select((x) => $"[{x.EscapeLinkText()}](https://www.pixiv.net/tags/{Uri.EscapeDataString(x)}/artworks)"));
+
+        private static PixivCard Remember(PixivCard card)
+        {
+            if (card.Images.Count <= 1) return card;
+
+            // shortcut: 卡片狀態只在記憶體，Bot 重啟後舊卡片的按鈕會失效
+            lock (PagerCards)
+            {
+                // 只留最近的 500 張，超過就淘汰最舊的
+                while (PagerCards.Count >= 500 && PagerOrder.Count > 0)
+                    PagerCards.Remove(PagerOrder.Dequeue());
+
+                card.Token = Guid.NewGuid().ToString("n")[..10];
+                PagerCards[card.Token] = card;
+                PagerOrder.Enqueue(card.Token);
+            }
+
+            return card;
+        }
+
+        private static GalleryCard BuildCard(PixivCard data, int page)
+        {
+            GalleryCard card = GalleryMessage.Card()
+                .WithHeader(data.Title, data.Url, data.Thumbnail, data.Creator);
+
+            if (!string.IsNullOrWhiteSpace(data.Description))
+                card.Text(data.Description, GalleryCard.DescriptionLength);
+
+            card.WithField("標籤", data.Tags);
+            card.WithField("上傳時間", data.Uploaded);
+            card.WithField("被看過了", data.Viewed);
+
+            if (data.Images.Count > 0)
+            {
+                int current = Math.Clamp(page, 1, data.Images.Count);
+                card.WithMediaGallery(new MediaGalleryBuilder().AddItem(data.Images[current - 1]));
+
+                if (data.Images.Count > 1)
+                    card.WithActionRow(GalleryCard.PagerRow(PagerPrefix, data.Token, current, data.Images.Count));
+            }
+
+            return card.WithFooter(data.User);
+        }
+
+        // InteractionHandler 攔到換頁按鈕後丟過來，不是我們的按鈕就回 false
+        public static async Task<bool> HandleButtonAsync(SocketMessageComponent component)
+        {
+            string customId = component.Data.CustomId;
+            if (customId == null || !customId.StartsWith(PagerPrefix + ":", StringComparison.Ordinal)) return false;
+
+            string[] parts = customId.Split(':');
+            if (parts.Length != 4 || !int.TryParse(parts[3], out int page) || !TryGetCard(parts[1], out PixivCard card))
+            {
+                await component.RespondAsync("這張卡片已失效，請重新貼上作品網址", ephemeral: true);
+                return true;
+            }
+
+            try
+            {
+                await component.UpdateAsync((x) =>
+                {
+                    x.Components = BuildCard(card, page).Build();
+                    x.Flags = MessageFlags.ComponentsV2;
+                    x.AllowedMentions = AllowedMentions.None;
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "切換 Pixiv 作品頁面失敗");
+                if (!component.HasResponded)
+                    await component.RespondAsync("切換頁面失敗，請稍後再試", ephemeral: true);
+            }
+
+            return true;
+        }
+
+        private static bool TryGetCard(string token, out PixivCard card)
+        {
+            lock (PagerCards) return PagerCards.TryGetValue(token, out card);
+        }
+
+        private static async Task<DateTimeOffset?> GetUploadDateAsync(int id)
+        {
+            try
+            {
+                IllustMetadata illust = JsonConvert.DeserializeObject<IllustMetadata>(
+                    await _httpClient.GetStringAsync($"https://www.pixiv.net/ajax/illust/{id}"));
+
+                DateTimeOffset date = illust?.Body?.CreateDate ?? default;
+                return date == default ? null : date;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "取得 Pixiv 上傳時間失敗");
+                return null;
+            }
         }
 
         private static async Task<(bool Status, IllustMetadata Reslut, string Error)> GetIllustDataFromAjaxAsync(string id)

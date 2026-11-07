@@ -119,5 +119,45 @@ GalleryCard longCard = GalleryMessage.Card()
 int total = Flatten(longCard.Build().Components).OfType<TextDisplayComponent>().Sum((x) => x.Content.Length);
 Check("text budget", total <= GalleryCard.MaxTextLength);
 
+// pixiv 的內文是 HTML，轉完 markdown 還會留下 span，分隔線也會吃掉字數
+Check("clean span", "<span style=\"color:#d47eff;\">MOD</span>".CleanText() == "MOD");
+Check("clean separator", "A\n----------------\nB".CleanText() == "A\n\nB");
+Check("clean keep angle text", "<Fate/stay night> 很好看".CleanText() == "<Fate/stay night> 很好看");
+
+// 內文只留開頭，切在連結中間時不能留下半截 markdown
+string head = new string('字', GalleryCard.DescriptionLength - 10);
+GalleryCard clipped = GalleryMessage.Card().Text(head + "[x](https://example.com/verylong)", GalleryCard.DescriptionLength);
+string clippedText = (clipped.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().Single().Content;
+Check("description limit", clippedText.Length <= GalleryCard.DescriptionLength);
+Check("description link cut", clippedText == head + "…");
+
+// 純文字也不能超過上限
+GalleryCard plainClip = GalleryMessage.Card().Text(new string('字', 300), GalleryCard.DescriptionLength);
+string plainClipText = (plainClip.Build().Components.Single() as ContainerComponent).Components
+    .Cast<TextDisplayComponent>().Single().Content;
+Check("description plain limit", plainClipText.Length <= GalleryCard.DescriptionLength && plainClipText.EndsWith("…"));
+
+// 換頁列放在 Container 外面，跟參考卡片的按鈕一樣在下方
+GalleryCard paged = GalleryMessage.Card()
+    .WithHeader("標題", null)
+    .WithActionRow(GalleryCard.PagerRow("pixiv-page", "abc", 2, 5));
+Check("pager row outside container", paged.Build().Components.Count == 2 && paged.Build().Components.ElementAt(1) is ActionRowComponent);
+
+ActionRowComponent pager = GalleryCard.PagerRow("pixiv-page", "abc", 2, 5).Build();
+Check("pager buttons", pager.Components.Count == 5);
+Check("pager first id", (pager.Components.First() as ButtonComponent)?.CustomId == "pixiv-page:abc:first:1");
+Check("pager first enabled", !(pager.Components.First() as ButtonComponent).IsDisabled);
+Check("pager indicator", (pager.Components.ElementAt(2) as ButtonComponent)?.Label == "2/5" && (pager.Components.ElementAt(2) as ButtonComponent).IsDisabled);
+Check("pager last id", (pager.Components.ElementAt(4) as ButtonComponent)?.CustomId == "pixiv-page:abc:last:5");
+Check("pager unique ids", pager.Components.Cast<ButtonComponent>().Select((x) => x.CustomId).Distinct().Count() == 5);
+
+ActionRowComponent pagerEdge = GalleryCard.PagerRow("pixiv-page", "abc", 1, 5).Build();
+Check("pager back disabled", (pagerEdge.Components.First() as ButtonComponent).IsDisabled);
+
+// 上傳時間要保留 pixiv 的 +09:00，不能換算成本機時區
+IllustMetadata dated = JsonConvert.DeserializeObject<IllustMetadata>("""{ "body": { "createDate": "2026-11-04T00:06:45+09:00" } }""");
+Check("upload date", dated.Body.CreateDate.ToString("yyyy/MM/dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) == "2026/11/04 00:06");
+
 Console.WriteLine(failed == 0 ? "PASS" : $"FAILED ({failed})");
 return failed == 0 ? 0 : 1;

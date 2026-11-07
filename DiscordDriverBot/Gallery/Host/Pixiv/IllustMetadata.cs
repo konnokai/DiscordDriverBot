@@ -35,7 +35,7 @@ namespace DiscordDriverBot.Gallery.Host.Pixiv
         public int IllustType { get; set; }
 
         [JsonProperty("createDate")]
-        public DateTime CreateDate { get; set; }
+        public DateTimeOffset CreateDate { get; set; }
 
         [JsonProperty("uploadDate")]
         public DateTime UploadDate { get; set; }

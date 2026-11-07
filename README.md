@@ -4,7 +4,7 @@ Discord Bot，用來查本本資訊、以圖搜圖，以及處理推特／X 網�
 
 ## 功能
 
-- 貼上 Pixiv、ExHentai、NHentai、Hitomi、Wnacg 網址，Bot 自動抓資料並顯示卡片。
+- 貼上 Pixiv、ExHentai、NHentai、Hitomi、Wnacg 網址，Bot 自動抓資料並顯示卡片。Pixiv 卡片會去掉內文的 HTML、只留前 200 字，標籤可點，多圖有換頁按鈕，並顯示上傳時間。
 - 以圖搜圖：對含圖片的訊息按右鍵選「搜尋 Ascii2D」／「搜尋 SauceNAO」；`/gallery sauce-from-url`、`/gallery sauce-from-attachment` 只跑 SauceNAO，`!!sauce` 兩邊都跑。
 - 右鍵「反推圖片來源」：從檔名找來源。`{帳號}-{推文 ID}-{序號}` 給 X 帳號與推文、`{作品 ID}_p{頁碼}` 給 Pixiv 作品頁；純 X 圖片 ID 則換成上傳時間與 X 搜尋頁。
 - 推特／X：`/convert-to-vxtwitter` 與右鍵「轉換網址成 vxTwitter」。

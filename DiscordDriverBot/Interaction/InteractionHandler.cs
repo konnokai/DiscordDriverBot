@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordDriverBot.Gallery.Host.Pixiv;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -164,6 +165,10 @@ namespace DiscordDriverBot.Interaction
         {
             try
             {
+                // 畫廊卡片的換頁按鈕不是 slash 指令，先攔下來
+                if (arg is SocketMessageComponent component && await Pixiv.HandleButtonAsync(component))
+                    return;
+
                 var ctx = new SocketInteractionContext(_client, arg);
                 await _interactions.ExecuteCommandAsync(ctx, _services);
             }

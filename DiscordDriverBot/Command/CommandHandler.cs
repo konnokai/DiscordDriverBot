@@ -103,14 +103,19 @@ namespace DiscordDriverBot.Command
             var guild = (message.Channel as IGuildChannel)?.Guild;
             ITextChannel channel = message.Channel as ITextChannel;
 
+            bool shown = false;
+
             foreach (var link in GalleryUrl.Extract(message.Content).Take(5))
             {
                 if (await Gallery.Function.ShowGalleryInfoAsync(link, guild, message.Channel, message.Author) == GalleryShowResult.Shown)
                 {
                     Log.FormatColorWrite($"[{guild.Name}/{channel.Name}]{message.Author.Username}: {link.SourceUrl}", ConsoleColor.Gray);
                     if (link.IsBook) SQLite.SQLiteFunction.UpdateGuildReadedBook(guild.Id);
+                    shown = true;
                 }
             }
+
+            if (shown) await message.SuppressEmbedsAsync();
         }
     }
 }

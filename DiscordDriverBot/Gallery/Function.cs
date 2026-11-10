@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Net;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -29,6 +30,28 @@ namespace DiscordDriverBot.Gallery
             };
 
             return shown ? GalleryShowResult.Shown : GalleryShowResult.Failed;
+        }
+
+        /// <summary>
+        /// 解析完把原訊息的連結預覽收掉，不然同一張圖會在頻道裡出現兩次
+        /// </summary>
+        public static async Task SuppressEmbedsAsync(this IUserMessage message)
+        {
+            if (message == null || message.Author.IsBot || message.IsSuppressed || message.Embeds.Count == 0) return;
+
+            try
+            {
+                await message.ModifyAsync(x => x.Flags = (message.Flags ?? MessageFlags.None) | MessageFlags.SuppressEmbeds);
+            }
+            catch (HttpException ex) when (ex.DiscordCode is DiscordErrorCode.MissingPermissions or DiscordErrorCode.UnknownMessage)
+            {
+                // 沒權限或訊息已刪除時預覽留著就好，不影響解析結果
+                Log.Info($"略過移除訊息 {message.Id} 的預覽: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"移除訊息 {message.Id} 的預覽失敗");
+            }
         }
 
         public static bool GetIDIsExist(string url)

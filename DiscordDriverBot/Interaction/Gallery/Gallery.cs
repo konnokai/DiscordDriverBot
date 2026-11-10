@@ -274,6 +274,10 @@ namespace DiscordDriverBot.Interaction.Gallery
                     }
                 }
 
+                // 只收呼叫者自己的訊息，不然任何人都能借機器人的權限收掉別人訊息的預覽
+                if (hasAnyResult && message is IUserMessage userMessage && userMessage.Author.Id == Context.User.Id)
+                    await userMessage.SuppressEmbedsAsync();
+
                 if (isBlocked && (hasAnyResult || hasFailed))
                     await Context.Interaction.SendErrorAsync("部分網址需要在 NSFW 頻道使用", true, true);
                 else if (!hasAnyResult && !hasFailed)

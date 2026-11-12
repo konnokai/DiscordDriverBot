@@ -37,13 +37,20 @@ namespace DiscordDriverBot.Gallery
         /// </summary>
         public static async Task SuppressEmbedsAsync(this IUserMessage message)
         {
-            if (message == null || message.Author.IsBot || message.IsSuppressed || message.Embeds.Count == 0) return;
+            if (message == null || message.Author.IsBot || message.IsSuppressed) return;
+
+            // Discord 的連結預覽是非同步抓的，太早送 suppress 會被後到的預覽蓋掉，先等它出現
+            // shortcut: 只等 cache 更新，訊息被洗出 50 筆 cache 就補不到，需要時改抓 REST
+            for (int i = 0; i < 5 && !message.IsSuppressed && message.Embeds.Count == 0; i++)
+                await Task.Delay(1000);
+
+            if (message.IsSuppressed || message.Embeds.Count == 0) return;
 
             try
             {
                 await message.ModifyAsync(x => x.Flags = (message.Flags ?? MessageFlags.None) | MessageFlags.SuppressEmbeds);
             }
-            catch (HttpException ex) when (ex.DiscordCode is DiscordErrorCode.MissingPermissions or DiscordErrorCode.UnknownMessage)
+            catch (HttpException ex) when (ex.DiscordCode is DiscordErrorCode.InsufficientPermissions or DiscordErrorCode.MissingPermissions or DiscordErrorCode.UnknownMessage)
             {
                 // 沒權限或訊息已刪除時預覽留著就好，不影響解析結果
                 Log.Info($"略過移除訊息 {message.Id} 的預覽: {ex.Message}");

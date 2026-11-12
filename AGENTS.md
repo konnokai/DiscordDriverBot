@@ -8,7 +8,7 @@
 - `DiscordDriverBot/Command/`：`!!` 前綴的文字指令（Discord.Commands），前綴定義在 `CommandHandler.cs`。
 - `DiscordDriverBot/HttpClients/`：對外 API 與爬頁客戶端。新程式碼從注入的 `IHttpClientFactory` 取 HttpClient；部分既有靜態客戶端自行建立。
 - `DiscordDriverBot/Gallery/`：各網站的資料解析與卡片顯示。
-- `Data/`：Docker 透過 volume 掛到 `/app/Data`。`Program.GetDataFilePath()` 用的是 `AppDomain.BaseDirectory/Data`，本機執行期資料在 `DiscordDriverBot/bin/<組態>/net10.0/Data/`。`HelpDescription.txt` 在根 `Data/` 與 `DiscordDriverBot/Data/` 各一份，改動要同步。`Data/*.db` 不進版控。
+- `Data/`：Docker 透過 volume 掛到 `/app/Data`。`Program.GetDataFilePath()` 用的是 `AppDomain.BaseDirectory/Data`，本機執行期資料在 `DiscordDriverBot/bin/<組態>/net10.0/Data/`。`HelpDescription.txt` 在根 `Data/` 與 `DiscordDriverBot/Data/` 各一份，改動要同步。`Data/*.db` 不進版控。`DataBase.db` 由 EF Core migration 建立與升級，啟動時自動 `Migrate()`；沒有 `__EFMigrationsHistory` 的舊 DB 會先把 `InitialCreate` 補成已套用。
 - `Dockerfile` 用官方 `sdk:10.0-noble`／`runtime:10.0-noble` 自建 image 並裝 opencc（`Program.cs` 會呼叫 `opencc -c s2tw`）。.NET 10 沒有 Debian bookworm tag，別改回 `bookworm-slim`。`dotnet_with_opencc/` 是獨立的上游 image 原始碼，不參與主 image 建置。
 
 ## 指令註冊

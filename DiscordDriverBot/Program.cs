@@ -8,6 +8,9 @@ using DiscordDriverBot.HttpClients.Ascii2D;
 using DiscordDriverBot.HttpClients.SauceNAO;
 using DiscordDriverBot.Interaction;
 using DiscordDriverBot.SQLite.Table;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Octokit;
@@ -74,9 +77,22 @@ namespace DiscordDriverBot
 
             using (var db = new SQLite.DriverContext())
             {
-                if (!File.Exists(GetDataFilePath("DataBase.db")))
+                // 舊資料庫是 EnsureCreated 建的，沒有 __EFMigrationsHistory；
+                // 先把現有 schema 當成已套用基準 migration，Migrate 才不會重跑建表
+                if (File.Exists(GetDataFilePath("DataBase.db")))
                 {
-                    db.Database.EnsureCreated();
+                    IHistoryRepository history = db.Database.GetService<IHistoryRepository>();
+                    history.CreateIfNotExists();
+
+                    if (history.GetAppliedMigrations().Count == 0)
+                        db.Database.ExecuteSqlRaw(history.GetInsertScript(
+                            new HistoryRow(db.Database.GetMigrations().First(), ProductInfo.GetVersion())));
+                }
+
+                db.Database.Migrate();
+
+                if (!db.DbBotConfig.Any())
+                {
                     db.DbBotConfig.Add(new DbBotConfig() { TagTranslationCreatedAt = 1 });
                     db.SaveChanges();
                 }

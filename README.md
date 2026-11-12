@@ -15,7 +15,7 @@ Discord Bot，用來查本本資訊、以圖搜圖，以及處理推特／X 網�
 1. 複製 `.env_sample` 成 `.env`，填入數值。
 2. `docker compose up -d --build`
 
-`docker-compose.yml` 會一起帶起 FlareSolverr（Ascii2D 需要），`FlareSolverrApiUrl` 用預設的 `http://flaresolverr:8191/` 就好。`Data/` 會掛進容器，資料庫留在這裡。
+`docker-compose.yml` 會一起帶起 FlareSolverr（Ascii2D 需要），`FlareSolverrApiUrl` 用預設的 `http://flaresolverr:8191/` 就好。`Data/` 會掛進容器，資料庫留在這裡。Bot 啟動時會自動套用未執行的資料庫 migration。
 
 `Dockerfile` 用官方 `mcr.microsoft.com/dotnet/sdk:10.0-noble` 與 `runtime:10.0-noble` 自己裝 opencc，不依賴外部 image。`dotnet_with_opencc/` 是另一個獨立 image 的原始碼（`build.sh` 會 build／push），改它不會影響這裡的建置。
 

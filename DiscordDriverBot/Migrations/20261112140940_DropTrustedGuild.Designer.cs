@@ -5,17 +5,19 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
+#nullable disable
+
 namespace DiscordDriverBot.Migrations
 {
     [DbContext(typeof(DriverContext))]
-    [Migration("20200219132227_AddDbEntity")]
-    partial class AddDbEntity
+    [Migration("20261112140940_DropTrustedGuild")]
+    partial class DropTrustedGuild
     {
+        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "3.1.1");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("DiscordDriverBot.SQLite.Table.BookData", b =>
                 {
@@ -46,7 +48,7 @@ namespace DiscordDriverBot.Migrations
                     b.ToTable("BookData");
                 });
 
-            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.BotConfig", b =>
+            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.DbBotConfig", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -57,7 +59,7 @@ namespace DiscordDriverBot.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BotConfig");
+                    b.ToTable("DbBotConfig");
                 });
 
             modelBuilder.Entity("DiscordDriverBot.SQLite.Table.GuildInfo", b =>
@@ -75,40 +77,6 @@ namespace DiscordDriverBot.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("GuildInfo");
-                });
-
-            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.TrustedGuild", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("TrustedGuild");
-                });
-
-            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.UpdateGuildInfo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("ChannelMemberId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("ChannelTimeId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UpdateGuildInfo");
                 });
 #pragma warning restore 612, 618
         }

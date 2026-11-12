@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
+#nullable disable
+
 namespace DiscordDriverBot.Migrations
 {
     [DbContext(typeof(DriverContext))]
@@ -12,8 +14,7 @@ namespace DiscordDriverBot.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "5.0.7");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("DiscordDriverBot.SQLite.Table.BookData", b =>
                 {
@@ -73,40 +74,6 @@ namespace DiscordDriverBot.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("GuildInfo");
-                });
-
-            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.TrustedGuild", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("TrustedGuild");
-                });
-
-            modelBuilder.Entity("DiscordDriverBot.SQLite.Table.UpdateGuildInfo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("ChannelMemberId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("ChannelTimeId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<ulong>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UpdateGuildInfo");
                 });
 #pragma warning restore 612, 618
         }
